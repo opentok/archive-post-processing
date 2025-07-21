@@ -4,7 +4,7 @@ from dataclasses import replace
 from datetime import timedelta
 from unittest.mock import patch
 
-from src.data_model import AlgoAudio, AlgoVideo, FindOverlapArgs, MediaDesc, MediaOverlap, OverlapInterval
+from src.data_model import AlgoAudio, AlgoVideo, FindOverlapArgs, MediaDesc, MediaOverlap, OverlapInterval, SimilarityEntry
 from src.validations import get_media_desc
 from src.overlap import *
 
@@ -233,15 +233,35 @@ class OverlapTest(TestBase):
 
         self.assertEqual(Interval(10, 9), interval)
 
-    def test_get_overlapping_indexes(self):
+    def test_get_overlapping_video_indexes(self):
         in_values: list = [2, 3, 4, 0, 0, 6, 3, 7, 8, 11, 1, 1, 1, 2, 3, 4, 4, 4, 5, 1, 2, 2, 2]
-        overlapping_interval = get_overlapping_indexes(in_values)
+        overlapping_interval = get_overlapping_video_indexes(in_values)
         self.assertEqual(Interval(12, 7), overlapping_interval)
 
         interval = find_longest_non_decreasing_segment(in_values)
 
         self.assertTrue(interval.ini < overlapping_interval.ini)
         self.assertEqual(overlapping_interval.end, interval.end)
+
+    def test_get_overlapping_audio_indexes(self):
+        in_values: dict = {}
+        in_values[0] = SimilarityEntry(index_i=5, corr=0.95, sim=0.9, assigned=True)
+        in_values[1] = SimilarityEntry(index_i=8, corr=0.95, sim=0.9, assigned=True)
+        in_values[2] = SimilarityEntry(index_i=9, corr=0.95, sim=0.9, assigned=True)
+        in_values[3] = SimilarityEntry(index_i=9, corr=0.95, sim=0.9, assigned=True)
+        in_values[4] = SimilarityEntry(index_i=11, corr=0.95, sim=0.9, assigned=True)
+        in_values[5] = SimilarityEntry(index_i=12, corr=0.95, sim=0.9, assigned=True)
+        in_values[6] = SimilarityEntry(index_i=0, corr=0.95, sim=0.9, assigned=False)
+        in_values[7] = SimilarityEntry(index_i=14, corr=0.95, sim=0.9, assigned=True)
+        in_values[8] = SimilarityEntry(index_i=17, corr=0.95, sim=0.9, assigned=True)
+        in_values[9] = SimilarityEntry(index_i=15, corr=0.95, sim=0.9, assigned=True)
+        in_values[11] = SimilarityEntry(index_i=7, corr=0.95, sim=0.9, assigned=True)
+        in_values[13] = SimilarityEntry(index_i=6, corr=0.95, sim=0.9, assigned=True)
+        in_values[15] = SimilarityEntry(index_i=17, corr=0.95, sim=0.9, assigned=True)
+        in_values[16] = SimilarityEntry(index_i=18, corr=0.95, sim=0.9, assigned=True)
+
+        overlapping_interval = get_overlapping_audio_indexes(in_values)
+        self.assertEqual(Interval(0, 8), overlapping_interval)
 
     def test_mock_get_matching_frames(self):
         archive_a_duration: float = self.overlap_conf.duration_a.total_seconds()
@@ -298,7 +318,7 @@ class OverlapTest(TestBase):
 
         start_overlap_index = 20
         final_overlap_index = 15
-        with patch('src.overlap.get_overlapping_indexes') as mock_get_indexes:
+        with patch('src.overlap.get_overlapping_video_indexes') as mock_get_indexes:
             mock_get_indexes.return_value = Interval(start_overlap_index, final_overlap_index - start_overlap_index + 1)
     
             overlap: MediaOverlap = find_overlap(self.conf.archive_a, self.conf.archive_b,
