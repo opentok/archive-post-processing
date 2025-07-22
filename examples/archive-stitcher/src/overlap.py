@@ -12,17 +12,30 @@ import numpy as np
 import pandas as pd
 import pywt
 
-from typing import Final, Optional, Tuple
+from dataclasses import dataclass
+from typing import Final, Optional
 
 from scipy.stats import pearsonr
 from skimage.feature import local_binary_pattern
 
-from .data_model import Interval, FindOverlapArgs, MediaOverlap, OverlapInterval, SimilarityEntry
+from .data_model import Interval, FindOverlapArgs, MediaOverlap, OverlapInterval
 from .utils import printerr, raise_error
 
 
 # Resize factor for the video frames
 RESIZE_FACTOR: Final[np.float32] = 0.5
+
+
+@dataclass(eq=True)
+class SimilarityEntry:
+    '''
+    index: int = 0          # chroma column index
+    corr: np.float32 = 0    # Maximum correlation of all the 12 chromas when assessing a fixed sample window of chroma_a and chroma_b
+    sim: np.float32 = 0     # Similarity factor between all the 12 correlation values when assessing the same sample window
+    '''
+    index_i: int = 0
+    corr: np.float32 = 0
+    sim: np.float32 = 0
 
 
 def plot_audio_samples(y_a: np.ndarray, y_b: np.ndarray, rate: int,
@@ -139,7 +152,7 @@ def release_video(video: cv2.VideoCapture):
         video.release()
 
 
-def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOverlapArgs) -> Tuple[float, float]:
+def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOverlapArgs) -> tuple[float, float]:
     match conf.algo_audio:
         case conf.algo_audio.PEARSON:
             # Frame-wise pearson correlation over 12-chroma vectors
@@ -227,21 +240,17 @@ def get_overlapping_video_indexes(values: list) -> Interval:
 
 
 def get_overlapping_audio_indexes(data_map: dict[int, SimilarityEntry]) -> Interval:
-    keys = list(data_map.keys())
-
     i_vals = list()
+    keys = data_map.keys()
     for key in keys:
-        if not data_map[key].assigned:
-            del data_map[key]
-        else:
-            i_vals.append(data_map[key].index_i)
+        i_vals.append(data_map[key].index_i)
 
     interval: Interval = find_longest_non_decreasing_segment(i_vals)
     return trim_init_duplicates_in_segment(i_vals, interval)
 
 
 def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
-    conf: FindOverlapArgs) -> Tuple[Interval, Interval]:
+    conf: FindOverlapArgs) -> tuple[Interval, Interval]:
     # Accepted error to avoid the indetermination: anyValue/0
     ACCEPTED_ERROR: Final[np.float32] = 1e-8
     # Number of sliding windows for assessing the chromas similarities
@@ -251,7 +260,7 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     chroma_a: np.ndarray = librosa.feature.chroma_cqt(y=y_a, sr=rate)
     chroma_b: np.ndarray = librosa.feature.chroma_cqt(y=y_b, sr=rate)
 
-    win_frames: int = max(112, int(min(chroma_a.shape[1], chroma_b.shape[1]) / NUM_AUDIO_WINDOWS))
+    win_frames: int = int(min(chroma_a.shape[1], chroma_b.shape[1]) / NUM_AUDIO_WINDOWS)
 
     chromas_relationship: dict[int, SimilarityEntry] = {}
     for i in range(0, chroma_a.shape[1] - win_frames):
@@ -269,9 +278,9 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
             similarity: np.float32 = 1 - min(score_std / 0.5, 1.0)
 
             if j not in chromas_relationship:
-                chromas_relationship[j] = SimilarityEntry()
+                chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity)
             elif (similarity > chromas_relationship[j].sim and max_corr > chromas_relationship[j].corr):
-                chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity, assigned=True)
+                chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity)
 
     overlap_indexes: Interval = get_overlapping_audio_indexes(chromas_relationship)
     if overlap_indexes.is_empty():

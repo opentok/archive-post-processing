@@ -6,7 +6,6 @@ from enum import StrEnum, auto
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
 
 class AlgoAudio(StrEnum):
     PEARSON = auto()
@@ -138,20 +137,6 @@ class OverlapInterval:
 class MediaOverlap:
     video: OverlapInterval = OverlapInterval()
     audio: OverlapInterval = OverlapInterval()
-
-
-@dataclass(eq=True)
-class SimilarityEntry:
-    '''
-        index_i: int = 0        # chroma_a column index
-        corr: np.float32 = 0    # Maximum correlation of all the 12 chromas when assessing a fixed sample window of chroma_a and chroma_b
-        sim: np.float32 = 0     # Similarity factor between all the 12 correlation values when assessing the same sample window
-        assigned: bool = False  # True if a valid value is assigned.
-    '''
-    index_i: int = 0
-    corr: np.float32 = 0
-    sim: np.float32 = 0
-    assigned: bool = False
 
 
 @dataclass
