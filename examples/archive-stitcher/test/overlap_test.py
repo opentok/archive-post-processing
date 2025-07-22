@@ -235,7 +235,7 @@ class OverlapTest(TestBase):
 
     def test_get_overlapping_video_indexes(self):
         in_values: list = [2, 3, 4, 0, 0, 6, 3, 7, 8, 11, 1, 1, 1, 2, 3, 4, 4, 4, 5, 1, 2, 2, 2]
-        overlapping_interval = get_overlapping_video_indexes(in_values)
+        overlapping_interval = get_overlapping_indexes(in_values)
         self.assertEqual(Interval(12, 7), overlapping_interval)
 
         interval = find_longest_non_decreasing_segment(in_values)
@@ -260,7 +260,8 @@ class OverlapTest(TestBase):
         in_values[15] = SimilarityEntry(index_i=17, corr=0.95, sim=0.9)
         in_values[16] = SimilarityEntry(index_i=18, corr=0.95, sim=0.9)
 
-        overlapping_interval = get_overlapping_audio_indexes(in_values)
+        index_values = [obj.index_i for obj in in_values.values()]
+        overlapping_interval = get_overlapping_indexes(index_values)
         self.assertEqual(Interval(0, 5), overlapping_interval)
 
     def test_mock_get_matching_frames(self):
@@ -318,7 +319,7 @@ class OverlapTest(TestBase):
 
         start_overlap_index = 20
         final_overlap_index = 15
-        with patch('src.overlap.get_overlapping_video_indexes') as mock_get_indexes:
+        with patch('src.overlap.get_overlapping_indexes') as mock_get_indexes:
             mock_get_indexes.return_value = Interval(start_overlap_index, final_overlap_index - start_overlap_index + 1)
     
             overlap: MediaOverlap = find_overlap(self.conf.archive_a, self.conf.archive_b,

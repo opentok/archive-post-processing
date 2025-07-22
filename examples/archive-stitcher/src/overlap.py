@@ -234,19 +234,9 @@ def trim_init_duplicates_in_segment(values: list, interval: Interval) -> Interva
     return Interval(new_ini, end_ind - new_ini + 1)
 
 
-def get_overlapping_video_indexes(values: list) -> Interval:
+def get_overlapping_indexes(values: list) -> Interval:
     interval: Interval = find_longest_non_decreasing_segment(values)
     return trim_init_duplicates_in_segment(values, interval)
-
-
-def get_overlapping_audio_indexes(data_map: dict[int, SimilarityEntry]) -> Interval:
-    i_vals = list()
-    keys = data_map.keys()
-    for key in keys:
-        i_vals.append(data_map[key].index_i)
-
-    interval: Interval = find_longest_non_decreasing_segment(i_vals)
-    return trim_init_duplicates_in_segment(i_vals, interval)
 
 
 def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
@@ -282,7 +272,8 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
             elif (similarity > chromas_relationship[j].sim and max_corr > chromas_relationship[j].corr):
                 chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity)
 
-    overlap_indexes: Interval = get_overlapping_audio_indexes(chromas_relationship)
+    index_values = [obj.index_i for obj in chromas_relationship.values()]
+    overlap_indexes: Interval = get_overlapping_indexes(index_values)
     if overlap_indexes.is_empty():
         return OverlapInterval()
 
@@ -343,7 +334,7 @@ def find_overlap_video(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
         return OverlapInterval()  # pragma: no cover
 
     values_b_list: list[int] = overlap_data_df['similar_frame_b'].tolist()
-    overlap_indexes: Interval = get_overlapping_video_indexes(values_b_list)
+    overlap_indexes: Interval = get_overlapping_indexes(values_b_list)
 
     if overlap_indexes.is_empty():
         return OverlapInterval()
