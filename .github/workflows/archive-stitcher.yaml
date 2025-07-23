@@ -11,7 +11,7 @@ on:
 jobs:
   archive-stitcher:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 180
     container:
       image: python:3.13.3-slim-bookworm
 
@@ -24,6 +24,11 @@ jobs:
       - name: Mark repo as safe
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
 
       - name: Install dependencies
         run: cd examples/archive-stitcher && pip install -r requirements.txt
