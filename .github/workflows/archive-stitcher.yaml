@@ -25,10 +25,6 @@ jobs:
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
       - name: Install dependencies
         run: cd examples/archive-stitcher && pip install -r requirements.txt
 
