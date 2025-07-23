@@ -31,7 +31,8 @@ class TestBase(unittest.TestCase):
                 algo_video=AlgoVideo.MSE,
                 algo_audio=AlgoAudio.PEARSON,
                 allow_output_overwrite=True,
-                debug_plot=True,
+                debug_plot=False,
+                deep_search=False,
                 )
 
         # setting up some example videos for the tests to work with in the test case temp dir

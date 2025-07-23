@@ -27,6 +27,7 @@ class OverlapTest(TestBase):
                 algo_video=AlgoVideo.MSE,
                 algo_audio=AlgoAudio.PEARSON,
                 debug_plot=False,
+                deep_search=False,
                 )
 
     def validate_output(self, exp_ovr: MediaOverlap, ovr: MediaOverlap, a_delta_num: float, v_delta_num: float):
@@ -43,12 +44,6 @@ class OverlapTest(TestBase):
         self.assertAlmostEqual(exp_ovr.video.duration, ovr.video.duration, delta=error_v_delta_dt)
 
     def test_find_overlap_success_given_video_with_mse(self):
-        '''
-            Best alignment for video_a starts at sec: 57.48s
-            Best alignment for video_a ends at sec: 59.44s
-            Best alignment for video_b starts at sec: 0.04s
-            Best alignment for video_b ends at sec: 2.04s
-        '''
         self.assertEqual(self.overlap_conf.algo_video, AlgoVideo.MSE)
 
         self.assertNotEqual(self.overlap_conf.audio_desc, None)
@@ -60,7 +55,7 @@ class OverlapTest(TestBase):
             timedelta(seconds=2, microseconds=40000)
             )
         audio_overlap_internal = OverlapInterval(
-            timedelta(seconds=57, microseconds=43000),
+            timedelta(seconds=57, microseconds=457000),
             timedelta(milliseconds=0),
             timedelta(seconds=2, microseconds=32000)
             )
@@ -73,12 +68,6 @@ class OverlapTest(TestBase):
         self.validate_output(expected_overlap, overlap, 0.4, 0.4)
 
     def test_find_overlap_success_given_video_with_varlbp(self):
-        '''
-            Best alignment for video_a starts at sec: 57.48s
-            Best alignment for video_a ends at sec: 59.44s
-            Best alignment for video_b starts at sec: 0.04s
-            Best alignment for video_b ends at sec: 2.04s
-        '''
         self.overlap_conf.algo_video = AlgoVideo.VARLBP
         self.assertEqual(self.overlap_conf.algo_video, AlgoVideo.VARLBP)
 
@@ -91,7 +80,7 @@ class OverlapTest(TestBase):
             timedelta(seconds=2, microseconds=40000)
             )
         audio_overlap_internal = OverlapInterval(
-            timedelta(seconds=57, microseconds=43000),
+            timedelta(seconds=57, microseconds=457000),
             timedelta(milliseconds=0),
             timedelta(seconds=2, microseconds=32000)
             )
@@ -104,12 +93,6 @@ class OverlapTest(TestBase):
         self.validate_output(expected_overlap, overlap, 0.4, 0.4)
 
     def test_find_overlap_success_given_video_with_unilbp(self):
-        '''
-            Best alignment for video_a starts at sec: 57.48s
-            Best alignment for video_a ends at sec: 59.44s
-            Best alignment for video_b starts at sec: 0.04s
-            Best alignment for video_b ends at sec: 2.04s
-        '''
         self.overlap_conf.algo_video = AlgoVideo.UNILBP
         self.assertEqual(self.overlap_conf.algo_video, AlgoVideo.UNILBP)
 
@@ -122,7 +105,7 @@ class OverlapTest(TestBase):
             timedelta(seconds=2, microseconds=40000)
             )
         audio_overlap_internal = OverlapInterval(
-            timedelta(seconds=57, microseconds=43000),
+            timedelta(seconds=57, microseconds=457000),
             timedelta(milliseconds=0),
             timedelta(seconds=2, microseconds=32000)
             )
@@ -135,12 +118,6 @@ class OverlapTest(TestBase):
         self.validate_output(expected_overlap, overlap, 0.4, 0.8)
 
     def test_find_overlap_success_given_video_with_wavelet(self):
-        '''
-            Best alignment for video_a starts at sec: 57.48s
-            Best alignment for video_a ends at sec: 59.44s
-            Best alignment for video_b starts at sec: 0.04s
-            Best alignment for video_b ends at sec: 2.04s
-        '''
         self.overlap_conf.algo_video = AlgoVideo.WAVELET
         self.assertEqual(self.overlap_conf.algo_video, AlgoVideo.WAVELET)
 
@@ -153,7 +130,7 @@ class OverlapTest(TestBase):
             timedelta(seconds=2, microseconds=40000)
             )
         audio_overlap_internal = OverlapInterval(
-            timedelta(seconds=57, microseconds=43000),
+            timedelta(seconds=57, microseconds=457000),
             timedelta(milliseconds=0),
             timedelta(seconds=2, microseconds=32000)
             )
@@ -166,6 +143,7 @@ class OverlapTest(TestBase):
         self.validate_output(expected_overlap, overlap, 0.4, 0.4)
 
     def test_find_overlap_success_given_video_only(self):
+        self.overlap_conf.audio_desc = None
         self.assertNotEqual(self.overlap_conf.video_desc, None)
 
         video_overlap_internal = OverlapInterval(
@@ -182,20 +160,30 @@ class OverlapTest(TestBase):
 
         self.validate_output(expected_overlap, overlap, 0, 0.4)
 
-    def test_find_overlap_success_given_audio_only(self):
-        '''
-            Pearson with 0.9 similarity and -s 4
-                Best alignment for audio_a starts at sec: 57.43s
-                Best alignment for audio_a ends at sec: 59.44
-                Best alignment for audio_b starts at sec: 0.00s
-                Best alignment for audio_b ends at sec: 2.032.03s
-        '''
+    def test_find_overlap_success_given_audio_only_with_deep_search(self):
         self.overlap_conf.video_desc = None
+        self.overlap_conf.deep_search = True
         self.assertNotEqual(self.overlap_conf.audio_desc, None)
 
         expected_overlap = MediaOverlap(
                 audio=OverlapInterval(
-                    timedelta(seconds=57, microseconds=43000),
+                    timedelta(seconds=57, microseconds=457000),
+                    timedelta(milliseconds=0),
+                    timedelta(seconds=2, microseconds=32000)
+                    ),
+                video=OverlapInterval())
+        overlap: MediaOverlap = find_overlap(self.conf.archive_a, self.conf.archive_b, self.overlap_conf)
+
+        self.validate_output(expected_overlap, overlap, 0.4, 0)
+
+    def test_find_overlap_success_given_audio_only_without_deep_search(self):
+        self.overlap_conf.video_desc = None
+        self.assertFalse(self.overlap_conf.deep_search)
+        self.assertNotEqual(self.overlap_conf.audio_desc, None)
+
+        expected_overlap = MediaOverlap(
+                audio=OverlapInterval(
+                    timedelta(seconds=57, microseconds=457000),
                     timedelta(milliseconds=0),
                     timedelta(seconds=2, microseconds=32000)
                     ),
