@@ -19,8 +19,7 @@ class ArchiveStitcherTest(TestBase):
                     '-o', 'output',
                     '-k', 'mse',
                     '-x', '1.5',
-                    '-y',
-                    '-d']
+                    '-y']
 
         expected_conf: Conf = Conf(
                 archive_a=Path('archive-a'),
@@ -30,7 +29,7 @@ class ArchiveStitcherTest(TestBase):
                 algo_video=AlgoVideo.MSE,
                 algo_audio=AlgoAudio.PEARSON,
                 allow_output_overwrite=True,
-                debug_plot=True,
+                debug_plot=False,
                 deep_search=False,
                 )
         self.assertEqual(expected_conf, archive_stitcher.get_conf())

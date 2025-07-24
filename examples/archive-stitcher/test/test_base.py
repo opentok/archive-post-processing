@@ -27,7 +27,7 @@ class TestBase(unittest.TestCase):
                 archive_a=self.dir_path / 'archive_a.mp4',
                 archive_b=self.dir_path / 'archive_b.mp4',
                 output=self.dir_path / 'output.mp4',
-                max_overlap=timedelta(seconds=15),
+                max_overlap=timedelta(seconds=4),
                 algo_video=AlgoVideo.MSE,
                 algo_audio=AlgoAudio.PEARSON,
                 allow_output_overwrite=True,
