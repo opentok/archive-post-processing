@@ -221,7 +221,7 @@ class OverlapTest(TestBase):
 
         self.assertEqual(Interval(10, 9), interval)
 
-    def test_get_overlapping_indexes(self):
+    def test_get_overlapping_video_indexes(self):
         in_values: list = [2, 3, 4, 0, 0, 6, 3, 7, 8, 11, 1, 1, 1, 2, 3, 4, 4, 4, 5, 1, 2, 2, 2]
         overlapping_interval = get_overlapping_indexes(in_values)
         self.assertEqual(Interval(12, 7), overlapping_interval)
@@ -230,6 +230,27 @@ class OverlapTest(TestBase):
 
         self.assertTrue(interval.ini < overlapping_interval.ini)
         self.assertEqual(overlapping_interval.end, interval.end)
+
+    def test_get_overlapping_audio_indexes(self):
+        in_values: dict = {}
+        in_values[0] = SimilarityEntry(index_i=5, corr=0.95, sim=0.9)
+        in_values[1] = SimilarityEntry(index_i=8, corr=0.95, sim=0.9)
+        in_values[2] = SimilarityEntry(index_i=9, corr=0.95, sim=0.9)
+        in_values[3] = SimilarityEntry(index_i=9, corr=0.95, sim=0.9)
+        in_values[4] = SimilarityEntry(index_i=11, corr=0.95, sim=0.9)
+        in_values[5] = SimilarityEntry(index_i=12, corr=0.95, sim=0.9)
+        in_values[6] = SimilarityEntry(index_i=0, corr=0.95, sim=0.9)
+        in_values[7] = SimilarityEntry(index_i=14, corr=0.95, sim=0.9)
+        in_values[8] = SimilarityEntry(index_i=17, corr=0.95, sim=0.9)
+        in_values[9] = SimilarityEntry(index_i=15, corr=0.95, sim=0.9)
+        in_values[11] = SimilarityEntry(index_i=7, corr=0.95, sim=0.9)
+        in_values[13] = SimilarityEntry(index_i=6, corr=0.95, sim=0.9)
+        in_values[15] = SimilarityEntry(index_i=17, corr=0.95, sim=0.9)
+        in_values[16] = SimilarityEntry(index_i=18, corr=0.95, sim=0.9)
+
+        index_values = [obj.index_i for obj in in_values.values()]
+        overlapping_interval = get_overlapping_indexes(index_values)
+        self.assertEqual(Interval(0, 5), overlapping_interval)
 
     def test_mock_get_matching_frames(self):
         archive_a_duration: float = self.overlap_conf.duration_a.total_seconds()
