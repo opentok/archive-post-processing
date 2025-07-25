@@ -159,8 +159,10 @@ def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOv
     match conf.algo_audio:
         case conf.algo_audio.PEARSON:
             # Frame-wise pearson correlation over 12-chroma vectors
-            pearson_chromas = [pearsonr(window_a[c], window_b[c])[0] for c in range(12)]
-            return max(pearson_chromas), np.std(pearson_chromas)
+            pearson_chromas: list = [pearsonr(window_a[c], window_b[c])[0] for c in range(12)]
+            # Similarity values closer to 1 have high similarity
+            similarity: np.float32 = 1 - min(np.std(pearson_chromas) / 0.5, 1.0)
+            return max(pearson_chromas), similarity
 
 
 def get_matching_frames(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> pd.DataFrame:
@@ -254,8 +256,7 @@ def slide_last_chroma_a_window_over_chroma_b(chroma_a: np.ndarray, chroma_b: np.
         window_b: np.ndarray = chroma_b[:, j:j + win_frames]
         win_b_norm: np.ndarray = (window_b - np.mean(window_b)) / max(np.std(window_b), ACCEPTED_ERROR)
 
-        max_corr, score_std = compute_audio_score(last_win_a_norm, win_b_norm, conf)
-        similarity = 1 - min(score_std / 0.5, 1.0)
+        max_corr, similarity = compute_audio_score(last_win_a_norm, win_b_norm, conf)
 
         if (similarity > j_similarity) and (max_corr > j_max_corr):
             most_similar_j = j
@@ -287,9 +288,7 @@ def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
             win_a_norm: np.ndarray = (window_a - np.mean(window_a)) / max(np.std(window_a), ACCEPTED_ERROR)
             win_b_norm: np.ndarray = (window_b - np.mean(window_b)) / max(np.std(window_b), ACCEPTED_ERROR)
 
-            max_corr, score_std = compute_audio_score(win_a_norm, win_b_norm, conf)
-            # Similarity values closer to 1 have high similarity
-            similarity: np.float32 = 1 - min(score_std / 0.5, 1.0)
+            max_corr, similarity = compute_audio_score(win_a_norm, win_b_norm, conf)
 
             if j not in chromas_relationship:
                 chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity)
@@ -322,7 +321,7 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
 
     win_frames: int = int(min(chroma_a.shape[1], chroma_b.shape[1]) / num_audio_windows)
 
-    if (not conf.deep_search):
+    if not conf.deep_search:
         most_similar_index: int = slide_last_chroma_a_window_over_chroma_b(chroma_a, chroma_b, win_frames, conf)
         if (most_similar_index > -1):
             return get_overlapping_audio_indexes_from_unique_scanning(chroma_a.shape[1], win_frames, most_similar_index)
