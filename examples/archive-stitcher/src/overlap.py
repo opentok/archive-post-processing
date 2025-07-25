@@ -21,6 +21,10 @@ from skimage.feature import local_binary_pattern
 from .data_model import Interval, FindOverlapArgs, MediaOverlap, OverlapInterval
 from .utils import printerr, raise_error
 
+import warnings
+categories = [UserWarning, FutureWarning, DeprecationWarning]
+for cat in categories:
+    warnings.filterwarnings("ignore", category=cat)
 
 # Resize factor for the video frames
 RESIZE_FACTOR: Final[np.float32] = 0.5
@@ -155,9 +159,16 @@ def release_video(video: cv2.VideoCapture):
 def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOverlapArgs) -> tuple[float, float]:
     match conf.algo_audio:
         case conf.algo_audio.PEARSON:
+            is_array_constant = lambda arr: np.all(arr == arr.flat[0])
+
             # Frame-wise pearson correlation over 12-chroma vectors
-            pearson_chromas = [pearsonr(window_a[c], window_b[c])[0] for c in range(12)]
-            return max(pearson_chromas), np.std(pearson_chromas)
+            pearson_chromas = list()
+            for c in range(min(window_a.shape[0], window_b.shape[0])):
+                if not (is_array_constant(window_a[c]) or is_array_constant(window_b[c])):
+                    pearson_chromas.append(pearsonr(window_a[c], window_b[c])[0])
+            # pearson_chromas values are constrained to the range [-1, +1].
+            # Therefore, np.nanstd(pearson_chromas) is constrained to the range [0, 1]
+            return np.nanmax(pearson_chromas), np.nanstd(pearson_chromas)
 
 
 def get_matching_frames(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> pd.DataFrame:
