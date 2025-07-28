@@ -23,7 +23,7 @@ class OverlapTest(TestBase):
                 duration_b=self.archive_b_desc.duration,
                 video_desc=self.archive_a_desc.video,
                 audio_desc=self.archive_a_desc.audio,
-                max_overlap=timedelta(seconds=float(4)),
+                max_overlap=timedelta(seconds=float(2.1)),
                 algo_video=AlgoVideo.MSE,
                 algo_audio=AlgoAudio.PEARSON,
                 debug_plot=False,
@@ -119,7 +119,7 @@ class OverlapTest(TestBase):
                 audio=OverlapInterval(
                     timedelta(seconds=57, microseconds=457000),
                     timedelta(milliseconds=0),
-                    timedelta(seconds=2, microseconds=32000)
+                    timedelta(seconds=1, microseconds=990000)
                     ),
                 video=OverlapInterval())
         overlap: MediaOverlap = find_overlap(self.conf.archive_a, self.conf.archive_b, self.overlap_conf)
