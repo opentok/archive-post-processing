@@ -8,6 +8,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Final, Optional
 
+import warnings
+
 import cv2
 import librosa
 import matplotlib.pyplot as plt
@@ -15,12 +17,14 @@ import numpy as np
 import pandas as pd
 import pywt
 
-from scipy.stats import pearsonr
 from skimage.feature import local_binary_pattern
 
 from .data_model import Interval, FindOverlapArgs, MediaOverlap, OverlapInterval
 from .utils import printerr, raise_error
 
+categories = [UserWarning, FutureWarning, DeprecationWarning]
+for cat in categories:
+    warnings.filterwarnings("ignore", category=cat)
 
 # Resize factor for the video frames
 RESIZE_FACTOR: Final[np.float32] = 0.5
@@ -158,11 +162,22 @@ def release_video(video: cv2.VideoCapture):
 def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOverlapArgs) -> tuple[float, float]:
     match conf.algo_audio:
         case conf.algo_audio.PEARSON:
-            # Frame-wise pearson correlation over 12-chroma vectors
-            pearson_chromas: list = [pearsonr(window_a[c], window_b[c])[0] for c in range(12)]
+            a_centered = window_a - window_a.mean(axis=1, keepdims=True)
+            b_centered = window_b - window_b.mean(axis=1, keepdims=True)
+
+            # Compute the numerator: dot product along rows
+            numerator = np.sum(a_centered * b_centered, axis=1)
+
+            # Compute the denominator: product of L2 norms along rows
+            a_norm = np.linalg.norm(a_centered, axis=1)
+            b_norm = np.linalg.norm(b_centered, axis=1)
+            denominator = a_norm * b_norm
+
+            correlations = numerator / (denominator + ACCEPTED_ERROR)
             # Similarity values closer to 1 have high similarity
-            similarity: np.float32 = 1 - min(np.std(pearson_chromas) / 0.5, 1.0)
-            return max(pearson_chromas), similarity
+            similarity: np.float32 = 1 - min(np.nanstd(correlations) / 0.5, 1.0)
+
+            return np.nanmax(correlations), similarity
 
 
 def get_matching_frames(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> pd.DataFrame:
