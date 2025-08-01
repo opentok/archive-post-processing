@@ -27,6 +27,7 @@ class Conf:
     algo_video: AlgoVideo
     algo_audio: AlgoAudio
     debug_plot: bool
+    deep_search: bool
     allow_output_overwrite: bool
 
 
@@ -95,6 +96,7 @@ class FindOverlapArgs:
     algo_video: AlgoVideo
     algo_audio: AlgoAudio
     debug_plot: bool
+    deep_search: bool
 
 
 @dataclass(eq=True, frozen=True)

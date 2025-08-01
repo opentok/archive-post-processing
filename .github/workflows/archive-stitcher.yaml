@@ -1,0 +1,50 @@
+name: archive-stitcher CI
+
+on:
+  push:
+    paths:
+      - 'examples/archive-stitcher/**'
+  pull_request:
+    paths:
+      - 'examples/archive-stitcher/**'
+
+jobs:
+  archive-stitcher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    container:
+      image: python:3.13.3-slim-bookworm
+
+    steps:
+      - name: Install deb dependencies
+        run: |
+          apt-get update
+          apt-get install -y git git-lfs ffmpeg
+
+      - name: Mark repo as safe
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Install dependencies
+        run: cd examples/archive-stitcher && pip install -r requirements.txt
+
+      - name: Install test dependencies
+        run: cd examples/archive-stitcher && pip install -r requirements-test.txt
+
+      - name: Run linter
+        run: cd examples/archive-stitcher && python -m pylint src test
+
+      - name: Run tests
+        run: cd examples/archive-stitcher && python -m pytest --cov=src --cov-report=xml test
+
+      - name: Check coverage diff
+        if: github.event_name == 'pull_request'
+        run: |
+          cd examples/archive-stitcher
+          git fetch origin ${{ github.event.pull_request.base.ref }}
+          diff-cover coverage.xml --compare-branch=origin/${{ github.event.pull_request.base.ref }} --fail-under=100
