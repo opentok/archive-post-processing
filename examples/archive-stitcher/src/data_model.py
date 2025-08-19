@@ -70,6 +70,7 @@ class VideoDesc:
     level: int
     fps: Fraction
     timescale: Fraction
+    has_b_frames: bool
 
 
 @dataclass(eq=True, frozen=True)

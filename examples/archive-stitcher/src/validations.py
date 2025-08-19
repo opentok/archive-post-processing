@@ -18,6 +18,7 @@ FFPROBE_TO_VIDEO_DESC_MAPPING: dict[str, tuple[str, Callable[str, Any]]] = {
         'height': ['height', int],
         'pix_fmt': ['pix_fmt', str],
         'level': ['level', int],
+        'has_b_frames': ['has_b_frames', lambda x: int(x) != 0],
         'r_frame_rate': ['fps', lambda x: Fraction.fromstr(x)],
         'time_base': ['timescale', lambda x: Fraction.fromstr(x)],
         }
@@ -88,6 +89,10 @@ def validate_media(media_desc_a: MediaDesc, media_desc_b: MediaDesc):
         raise_error('This script only supports H264 video')
     if media_desc_a.audio and media_desc_a.audio.codec != 'aac':
         raise_error('This script only supports AAC audio')
+
+    # check there are no b-frames
+    if media_desc_a.video and media_desc_a.video.has_b_frames:
+        raise_error('This script does not support videos with B-frames, please re-encode without B-frames')
 
 
 def get_media_desc(filepath: Path) -> MediaDesc:
