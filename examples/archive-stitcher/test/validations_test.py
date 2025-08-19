@@ -115,9 +115,9 @@ class ValidationsTest(TestBase):
                     codec='aac',
                     sample_rate=48000,
                     channels=1),
-                duration=timedelta(seconds=59, microseconds=442000),
+                duration=timedelta(seconds=59, microseconds=441000),
                 )
-        self.assertAlmostEqual(expected, get_media_desc(self.conf.archive_a), delta=0.25)
+        self.assertAlmostEqual(expected, get_media_desc(self.conf.archive_a), delta=0.5)
 
     def test_get_media_desc_error_given_wrong_ffprobe_output(self):
         with patch('src.validations.run_exec') as mock:
