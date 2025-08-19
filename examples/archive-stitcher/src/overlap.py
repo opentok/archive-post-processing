@@ -386,7 +386,7 @@ def find_overlap_video(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
     end_overlap_a: int = overlap_data_df.loc[overlap_indexes.end, 'frame_a']
 
     if conf.debug_plot:
-        end_time_b = (start_overlap_b + (end_overlap_a - start_overlap_a + 1)) / rate
+        end_time_b = (start_overlap_b + (end_overlap_a - start_overlap_a)) / rate  # pragma: no cover
         print(f"Best alignment for video_a starts at sec: {(start_overlap_a / rate):.2f}s")
         print(f"Best alignment for video_a ends at sec: {(end_overlap_a / rate):.2f}s")
         print(f"Best alignment for video_b starts at sec: {(start_overlap_b / rate):.2f}s")
