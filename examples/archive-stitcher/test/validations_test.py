@@ -2,7 +2,9 @@
 
 from unittest.mock import patch
 
-from dataclasses import replace
+import math
+
+from dataclasses import fields, is_dataclass, replace
 from datetime import timedelta
 from pathlib import Path
 
@@ -13,6 +15,22 @@ from src.utils import FFMPEG, FFPROBE, StitcherException
 from src.validations import get_media_desc, validate_conf, validate_media, validate_tools
 
 from .test_base import TestBase
+
+
+def dataclasses_almost_equal(a, b, delta):
+    if type(a) != type(b):
+        return False
+    if is_dataclass(a):
+        for f in fields(a):
+            val_a = getattr(a, f.name)
+            val_b = getattr(b, f.name)
+            if not dataclasses_almost_equal(val_a, val_b, delta):
+                return False
+        return True
+    elif isinstance(a, float) or isinstance(a, int):
+        return math.isclose(a, b, abs_tol=delta)
+    else:
+        return a == b
 
 
 class ValidationsTest(TestBase):
@@ -109,7 +127,8 @@ class ValidationsTest(TestBase):
                     pix_fmt='yuv420p',
                     level=41,
                     fps=Fraction(25, 1),
-                    timescale=Fraction(1, 90000)
+                    timescale=Fraction(1, 90000),
+                    has_b_frames=False
                     ),
                 audio=AudioDesc(
                     codec='aac',
@@ -117,7 +136,7 @@ class ValidationsTest(TestBase):
                     channels=1),
                 duration=timedelta(seconds=59, microseconds=442000),
                 )
-        self.assertAlmostEqual(expected, get_media_desc(self.conf.archive_a), delta=0.25)
+        dataclasses_almost_equal(expected, get_media_desc(self.conf.archive_a), delta=0.25)
 
     def test_get_media_desc_error_given_wrong_ffprobe_output(self):
         with patch('src.validations.run_exec') as mock:
@@ -187,4 +206,13 @@ class ValidationsTest(TestBase):
         media_desc_b = replace(media_desc_b, video=replace(media_desc_b.video, codec='pipepiper'))
 
         with self.assertRaisesRegex(StitcherException, 'This script only supports H264 video'):
+            validate_media(media_desc_a, media_desc_b)
+
+    def test_validate_media_error_given_video_with_b_frames(self):
+        media_desc_a: MediaDesc = get_media_desc(self.conf.archive_a)
+        media_desc_b: MediaDesc = get_media_desc(self.conf.archive_b)
+        media_desc_a = replace(media_desc_a, video=replace(media_desc_a.video, has_b_frames=True))
+        media_desc_b = replace(media_desc_a, video=replace(media_desc_b.video, has_b_frames=True))
+
+        with self.assertRaisesRegex(StitcherException, 'This script does not support videos with B-frames.*'):
             validate_media(media_desc_a, media_desc_b)
