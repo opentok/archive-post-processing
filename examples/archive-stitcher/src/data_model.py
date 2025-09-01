@@ -13,7 +13,6 @@ class AlgoAudio(StrEnum):
 
 class AlgoVideo(StrEnum):
     VARLBP = auto()
-    UNILBP = auto()
     MSE = auto()
     WAVELET = auto()
 

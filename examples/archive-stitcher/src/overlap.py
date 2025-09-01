@@ -127,9 +127,6 @@ def compute_video_score(frame_a: np.ndarray, frame_b: np.ndarray, conf: FindOver
         case conf.algo_video.VARLBP:
             lbp = local_binary_pattern(gradient, P=25, R=1, method="var")
             return np.sum(lbp[lbp < 15])
-        case conf.algo_video.UNILBP:
-            lbp = local_binary_pattern(gradient, P=8, R=1, method="uniform")
-            return np.sum(lbp[lbp < 4])
         case conf.algo_video.MSE:
             return np.mean((np.abs(gradient)) ** 2)
         case conf.algo_video.WAVELET:

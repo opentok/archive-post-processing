@@ -76,23 +76,6 @@ class OverlapTest(TestBase):
 
         self.validate_output(expected_overlap, overlap, 0, 0.4)
 
-    def test_find_overlap_success_given_only_video_with_unilbp(self):
-        self.overlap_conf.audio_desc = None
-        self.overlap_conf.algo_video = AlgoVideo.UNILBP
-        self.assertEqual(self.overlap_conf.algo_video, AlgoVideo.UNILBP)
-        self.assertNotEqual(self.overlap_conf.video_desc, None)
-
-        expected_overlap = MediaOverlap(
-                audio=OverlapInterval(),
-                video=OverlapInterval(
-                    timedelta(seconds=57, microseconds=480000),
-                    timedelta(seconds=0, microseconds=40000),
-                    timedelta(seconds=2, microseconds=40000)
-                    ))
-        overlap: MediaOverlap = find_overlap(self.conf.archive_a, self.conf.archive_b, self.overlap_conf)
-
-        self.validate_output(expected_overlap, overlap, 0, 0.8)
-
     def test_find_overlap_success_given_only_video_with_wavelet(self):
         self.overlap_conf.audio_desc = None
         self.overlap_conf.algo_video = AlgoVideo.WAVELET
