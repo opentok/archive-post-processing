@@ -41,6 +41,50 @@ class SimilarityEntry:
     sim: np.float32 = 0
 
 
+def plot_chromas(chroma_a: np.ndarray, chroma_b: np.ndarray, rate: int, win_frames: int, max_overlap: int,
+    start_index_a: int, end_index_a: int, start_index_b: int, end_index_b: int, span: bool):
+    for i in range(0, chroma_a.shape[0]):
+        _fig, (ax1, ax3) = plt.subplots(2, 1, sharex=True, figsize=(12, 6))
+
+    librosa.display.waveshow(chroma_a[i:], sr=rate, ax=ax1, marker='.', label='chroma_a')
+    for count in range(0, int(max_overlap.total_seconds())):
+        ax1.axvline(x=count*win_frames/rate, color='k', linestyle='--')
+        plt.text(x=count*win_frames/rate, y=1.8, s='sec. ' + str(count), rotation=90)
+
+        ax1.axvline(x=start_index_a/rate, color='g', linestyle='--')
+        ax1.axvline(x=end_index_a/rate, color='g', linestyle='--')
+        if span:
+            ax1.axvspan(start_index_a/rate, end_index_a/rate, color='g', alpha=0.3, label='overlapping section')
+
+        ax1.set_xlabel(f"chroma_a: {i}")
+        ax1.set_ylabel('amplitude')
+        ax1.grid(True)
+        ax1.legend(fontsize="x-large")
+
+        librosa.display.waveshow(chroma_b[i:], sr=rate, ax=ax3, marker='.', label='chroma_b')
+        for count in range(0, int(max_overlap.total_seconds())):
+            ax3.axvline(x=count*win_frames/rate, color='k', linestyle='--')
+            plt.text(x=count*win_frames/rate, y=1.8, s='sec. ' + str(count), rotation=90)
+
+        ax3.axvline(x=start_index_b/rate, color='g', linestyle='--')
+        ax3.axvline(x=end_index_b/rate, color='g', linestyle='--')
+        if span:
+            ax3.axvspan(start_index_b/rate, end_index_b/rate, color='g', alpha=0.3, label='overlapping section')
+
+        ax3.set_xlabel(f"chroma_b: {i}")
+        ax3.set_ylabel('amplitude')
+        ax3.grid(True)
+        ax3.legend(fontsize="x-large")
+
+        plt.title('Audio chromas display')
+        plt.tight_layout()
+
+        _fig1 = plt.gcf()
+        plt.show()
+        plt.draw()
+        plt.close()
+
+
 def plot_audio_samples(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     start_time_a: float, end_time_a: float, start_time_b: float, end_time_b: float):
     _fig, (ax1, ax3) = plt.subplots(2, 1, sharex=True, figsize=(12, 6))
@@ -306,6 +350,11 @@ def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
     last_index_a: int = min(chromas_relationship[last_index].index_i + win_frames + 1, chroma_a.shape[1])
 
     overlapping_length: int = last_index_a - first_index_a
+
+    if conf.deep_debug_plot:
+        rate = int(conf.audio_desc.sample_rate)
+        plot_chromas(chroma_a, chroma_b, rate, win_frames, conf.max_overlap,
+        first_index_a, last_index_a, first_index_b, first_index_b + overlapping_length, True)
 
     return [Interval(first_index_a, overlapping_length), Interval(first_index_b, overlapping_length)]
 
