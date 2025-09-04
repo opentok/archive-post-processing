@@ -34,6 +34,7 @@ HOP_LENGTH: Final[int] = 512
 # Number of seconds covered by the similarity analysis window
 WINDOW_NUM_SECS: Final[np.float32] = 1.1
 
+
 @dataclass(eq=True)
 class SimilarityEntry:
     '''
@@ -318,8 +319,8 @@ def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
 def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     conf: FindOverlapArgs) -> tuple[Interval, Interval]:
     # Compute 12 chroma features (pitch classes) from Constant-Q Transform
-    chroma_a: np.ndarray = librosa.feature.chroma_cqt(y=y_a, sr=rate)
-    chroma_b: np.ndarray = librosa.feature.chroma_cqt(y=y_b, sr=rate)
+    chroma_a: np.ndarray = librosa.feature.chroma_cqt(y=y_a, sr=rate, hop_length=HOP_LENGTH)
+    chroma_b: np.ndarray = librosa.feature.chroma_cqt(y=y_b, sr=rate, hop_length=HOP_LENGTH)
 
     # window that covers WINDOW_NUM_SECS seconds
     win_frames: int = int(WINDOW_NUM_SECS * np.ceil(conf.audio_desc.sample_rate/HOP_LENGTH))
@@ -351,10 +352,10 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
     if (overlap_indeces_a.end == 0 or overlap_indeces_b.end == 0):
         return OverlapInterval()  # pragma: no cover
 
-    start_time_a = librosa.frames_to_time(overlap_indeces_a.ini, sr=rate)
-    start_time_b = librosa.frames_to_time(overlap_indeces_b.ini, sr=rate)
-    end_time_a = librosa.frames_to_time(overlap_indeces_a.end, sr=rate)
-    end_time_b = librosa.frames_to_time(overlap_indeces_b.end, sr=rate)
+    start_time_a = librosa.frames_to_time(overlap_indeces_a.ini, sr=rate, hop_length=HOP_LENGTH)
+    start_time_b = librosa.frames_to_time(overlap_indeces_b.ini, sr=rate, hop_length=HOP_LENGTH)
+    end_time_a = librosa.frames_to_time(overlap_indeces_a.end, sr=rate, hop_length=HOP_LENGTH)
+    end_time_b = librosa.frames_to_time(overlap_indeces_b.end, sr=rate, hop_length=HOP_LENGTH)
 
     if conf.debug_plot:
         print(f"Best alignment for audio_a starts at sec: {(start_time_a + offset_a.total_seconds()):.2f}s")
