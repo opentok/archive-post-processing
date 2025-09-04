@@ -322,7 +322,7 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     chroma_a: np.ndarray = librosa.feature.chroma_cqt(y=y_a, sr=rate, hop_length=HOP_LENGTH)
     chroma_b: np.ndarray = librosa.feature.chroma_cqt(y=y_b, sr=rate, hop_length=HOP_LENGTH)
 
-    # window that covers WINDOW_NUM_SECS seconds
+    # The win_frames sliding window approximately covers WINDOW_NUM_SECS amount of time in the time domain
     win_frames: int = int(WINDOW_NUM_SECS * np.ceil(conf.audio_desc.sample_rate/HOP_LENGTH))
 
     if not conf.deep_search:
