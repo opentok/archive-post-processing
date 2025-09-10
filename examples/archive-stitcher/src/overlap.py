@@ -355,7 +355,7 @@ def find_longest_non_decreasing_segment(values: list[int], media_type: str) -> I
         prev = value
 
     if (len(longest_segments_list) == 0):
-        return Interval()
+        return Interval()  # pragma: no cover
 
     return remove_glitches(values, longest_segments_list, media_type)
 
