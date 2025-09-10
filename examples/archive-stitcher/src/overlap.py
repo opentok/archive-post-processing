@@ -362,6 +362,9 @@ def find_longest_non_decreasing_segment(values: list[int], media_type: str) -> I
 
 def get_overlapping_indexes(values: list[int], media_type: str) -> Interval:
     interval_pre_trimming: Interval = find_longest_non_decreasing_segment(values, media_type)
+    if (interval_pre_trimming.is_empty()):
+        return Interval()  # pragma: no cover
+
     interval_ini_trimmed: Interval = trim_init_duplicates_in_segment(values, interval_pre_trimming)
     return trim_end_duplicates_in_segment(values, interval_ini_trimmed)
 
