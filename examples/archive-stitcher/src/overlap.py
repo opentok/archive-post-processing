@@ -8,6 +8,8 @@ from pathlib import Path
 from dataclasses import dataclass
 from typing import Final, Optional
 
+import warnings
+
 import cv2
 import librosa
 import matplotlib.pyplot as plt
@@ -15,18 +17,26 @@ import numpy as np
 import pandas as pd
 import pywt
 
-from scipy.stats import pearsonr
 from skimage.feature import local_binary_pattern
 
 from .data_model import Interval, FindOverlapArgs, MediaOverlap, OverlapInterval
 from .utils import printerr, raise_error
 
+categories = [UserWarning, FutureWarning, DeprecationWarning]
+for cat in categories:
+    warnings.filterwarnings("ignore", category=cat)
 
 # Resize factor for the video frames
 RESIZE_FACTOR: Final[np.float32] = 0.5
 
 # Accepted error to avoid the indetermination: anyValue/0
 ACCEPTED_ERROR: Final[np.float32] = 1e-8
+
+# The number of samples between successive frames (librosa default value)
+HOP_LENGTH: Final[int] = 512
+
+# Number of seconds covered by the similarity analysis window
+WINDOW_NUM_SECS: Final[np.float32] = 1.1
 
 
 @dataclass(eq=True)
@@ -156,13 +166,26 @@ def release_video(video: cv2.VideoCapture):
 
 
 def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOverlapArgs) -> tuple[float, float]:
+    # Both windows have 12 rows with equal or approximately win_frames columns, i.e, (12 rows, win_frames columns)
     match conf.algo_audio:
         case conf.algo_audio.PEARSON:
-            # Frame-wise pearson correlation over 12-chroma vectors
-            pearson_chromas: list = [pearsonr(window_a[c], window_b[c])[0] for c in range(12)]
+            # axis=1: <signal>.shape[1] values for each row in <signal>.shape[0].
+            a_centered = window_a - window_a.mean(axis=1, keepdims=True)
+            b_centered = window_b - window_b.mean(axis=1, keepdims=True)
+
+            # Compute the numerator: sum accros columns for each row
+            numerator = np.sum(a_centered * b_centered, axis=1)
+            # Compute the denominator
+            denominator = np.sqrt(np.sum(a_centered**2, axis=1) * np.sum(b_centered**2, axis=1))
+
+            correlations = numerator / (denominator + ACCEPTED_ERROR)
+
+            # Pearson chromas values are constrained to the range [-1, +1].
+            # Therefore, np.nanstd(pearson_chromas) is constrained to the range [0, 1]
             # Similarity values closer to 1 have high similarity
-            similarity: np.float32 = 1 - min(np.std(pearson_chromas) / 0.5, 1.0)
-            return max(pearson_chromas), similarity
+            similarity: np.float32 = 1 - min(np.nanstd(correlations) / 0.5, 1.0)
+
+            return np.nanmax(correlations), similarity
 
 
 def get_matching_frames(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> pd.DataFrame:
@@ -312,14 +335,12 @@ def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
 
 def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     conf: FindOverlapArgs) -> tuple[Interval, Interval]:
-    # Number of sliding windows for assessing the chromas similarities
-    num_audio_windows: Final[int] = 5
-
     # Compute 12 chroma features (pitch classes) from Constant-Q Transform
-    chroma_a: np.ndarray = librosa.feature.chroma_cqt(y=y_a, sr=rate)
-    chroma_b: np.ndarray = librosa.feature.chroma_cqt(y=y_b, sr=rate)
+    chroma_a: np.ndarray = librosa.feature.chroma_cqt(y=y_a, sr=rate, hop_length=HOP_LENGTH)
+    chroma_b: np.ndarray = librosa.feature.chroma_cqt(y=y_b, sr=rate, hop_length=HOP_LENGTH)
 
-    win_frames: int = int(min(chroma_a.shape[1], chroma_b.shape[1]) / num_audio_windows)
+    # The win_frames sliding window approximately covers WINDOW_NUM_SECS amount of time in the time domain
+    win_frames: int = int(WINDOW_NUM_SECS * np.ceil(conf.audio_desc.sample_rate/HOP_LENGTH))
 
     if not conf.deep_search:
         most_similar_index: int = slide_last_chroma_a_window_over_chroma_b(chroma_a, chroma_b, win_frames, conf)
@@ -348,10 +369,10 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
     if (overlap_indeces_a.end == 0 or overlap_indeces_b.end == 0):
         return OverlapInterval()  # pragma: no cover
 
-    start_time_a = librosa.frames_to_time(overlap_indeces_a.ini, sr=rate)
-    start_time_b = librosa.frames_to_time(overlap_indeces_b.ini, sr=rate)
-    end_time_a = librosa.frames_to_time(overlap_indeces_a.end, sr=rate)
-    end_time_b = librosa.frames_to_time(overlap_indeces_b.end, sr=rate)
+    start_time_a = librosa.frames_to_time(overlap_indeces_a.ini, sr=rate, hop_length=HOP_LENGTH)
+    start_time_b = librosa.frames_to_time(overlap_indeces_b.ini, sr=rate, hop_length=HOP_LENGTH)
+    end_time_a = librosa.frames_to_time(overlap_indeces_a.end, sr=rate, hop_length=HOP_LENGTH)
+    end_time_b = librosa.frames_to_time(overlap_indeces_b.end, sr=rate, hop_length=HOP_LENGTH)
 
     if conf.debug_plot or conf.deep_debug_plot:
         print(f"Best alignment for audio_a starts at sec: {(start_time_a + offset_a.total_seconds()):.2f}s")
