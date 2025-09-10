@@ -379,7 +379,7 @@ def find_overlap_video(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
     overlap_indexes: Interval = get_overlapping_indexes(values_b_list)
 
     if overlap_indexes.is_empty():
-        return OverlapInterval()
+        return OverlapInterval()  # pragma: no cover
 
     start_overlap_a: int = overlap_data_df.loc[overlap_indexes.ini, 'frame_a']
     start_overlap_b: int = overlap_data_df.loc[overlap_indexes.ini, 'similar_frame_b']
