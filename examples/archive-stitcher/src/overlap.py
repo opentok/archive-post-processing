@@ -378,7 +378,7 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
         print(f"Best alignment for audio_a starts at sec: {(start_time_a + offset_a.total_seconds()):.2f}s")
         print(f"Best alignment for audio_a ends at sec: {(end_time_a + offset_a.total_seconds()):.2f}")
         print(f"Best alignment for audio_b starts at sec: {start_time_b:.2f}s")
-        print(f"Best alignment for audio_b ends at sec: {end_time_b:.2f}s")
+        print(f"Best alignment for audio_b ends at sec: {end_time_b:.2f}s")  # pragma: no cover
 
         plot_audio_samples(y_a, y_b, rate, start_time_a, end_time_a, start_time_b, end_time_b)
 
