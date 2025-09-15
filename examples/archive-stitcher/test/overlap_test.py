@@ -239,27 +239,6 @@ class OverlapTest(TestBase):
 
         self.assertEqual(get_increasing_data_intervals(values, interval_list), expected_interval_list)
 
-    def test_add_unique_element_to_list_if_element_is_not_in_the_set(self):
-        segments_in_set = set()
-        segments_in_list = list()
-        interval_list = add_unique_element_to_list(0, 150, segments_in_set, segments_in_list)
-
-        self.assertEqual([Interval(ini=0, length=150)], interval_list)
-
-    def test_add_unique_element_to_list_adds_another_element_to_a_non_empty_list(self):
-        segments_in_set = {(0, 117)}
-        segments_in_list = [Interval(ini=0, length=117)]
-        interval_list = add_unique_element_to_list(117, 168, segments_in_set, segments_in_list)
-
-        self.assertEqual([Interval(ini=0, length=117), Interval(ini=117, length=168)], interval_list)
-
-    def test_add_unique_element_to_list_does_not_add_a_repeated_element(self):
-        segments_in_set = {(0, 117), (117, 168)}
-        segments_in_list = [Interval(ini=0, length=117), Interval(ini=117, length=168)]
-        interval_list = add_unique_element_to_list(117, 168, segments_in_set, segments_in_list)
-
-        self.assertEqual(segments_in_list, interval_list)
-
     def test_remove_glitches_discards_intervals_that_are_not_glitches(self):
         values = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 13, 13, 14, 14, 15, 15, 16, 16, 21, 22,
             23, 24, 25, 26, 27, 28, 29, 30, 31, 31, 33, 34, 35, 36, 37, 25, 26, 27, 28, 29, 30, 31, 32,
@@ -271,7 +250,7 @@ class OverlapTest(TestBase):
         longest_segments_list = [Interval(ini=0, length=12), Interval(ini=12, length=25),Interval(ini=37, length=8),
             Interval(ini=64, length=6), Interval(ini=90, length=33), Interval(ini=123, length=11)]
 
-        self.assertEqual(Interval(ini=0, length=45), remove_glitches(values, longest_segments_list, "audio"))
+        self.assertEqual(Interval(ini=0, length=45), remove_glitches(values, longest_segments_list, MediaType.AUDIO))
 
     def test_remove_glitches_joins_consecutive_intervals_with_outliers(self):
         values = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 13, 13, 14, 14, 15, 15, 16, 16, 21, 22,
@@ -283,21 +262,33 @@ class OverlapTest(TestBase):
             270, 304, 303, 301, 300]
         longest_segments_list = [Interval(ini=0, length=12), Interval(ini=12, length=25), Interval(ini=90, length=33)]
 
-        self.assertEqual(Interval(ini=0, length=37), remove_glitches(values, longest_segments_list, "audio"))
+        self.assertEqual(Interval(ini=0, length=37), remove_glitches(values, longest_segments_list, MediaType.AUDIO))
+
+    def test_remove_glitches_returns_empty_overlap_interval_if_media_type_is_undefined(self):
+        values = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 13, 13, 14, 14, 15, 15, 16, 16, 21, 22,
+            23, 24, 25, 26, 27, 28, 29, 30, 31, 31, 33, 34, 35, 36, 37, 25, 26, 27, 28, 29, 30, 31,
+            32, 0, 158, 159, 0, 0, 4, 5, 4, 6, 7, 9, 10, 11, 12, 12, 13, 13, 14, 14, 199, 200, 200,
+            201, 209, 209, 208, 209, 213, 220, 219, 86, 87, 89, 91, 78, 78, 305, 305, 305, 306, 0, 140,
+            225, 75, 145, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 87, 88, 89, 90, 91, 92, 93, 94, 104, 105,
+            106, 116, 117, 118, 134, 135, 137, 138, 139, 140, 141, 0, 0, 0, 260, 262, 264, 265, 267, 269,
+            270, 304, 303, 301, 300]
+        longest_segments_list = [Interval(ini=0, length=12), Interval(ini=12, length=25), Interval(ini=90, length=33)]
+
+        self.assertEqual(Interval(ini=0, length=0), remove_glitches(values, longest_segments_list, MediaType.UNDEFINED))
 
     def test_find_longest_non_decreasing_segment(self):
         in_values: list = [2, 3, 4, 0, 0, 6, 3, 7, 8, 11, 1, 1, 1, 2, 3, 4, 4, 4, 5, 1, 2, 2, 2]
 
-        self.assertEqual(Interval(10, 9), find_longest_non_decreasing_segment(in_values, "audio"))
-        self.assertEqual(Interval(10, 9), find_longest_non_decreasing_segment(in_values, "video"))
+        self.assertEqual(Interval(10, 9), find_longest_non_decreasing_segment(in_values, MediaType.AUDIO))
+        self.assertEqual(Interval(10, 9), find_longest_non_decreasing_segment(in_values, MediaType.VIDEO))
 
     def test_get_overlapping_video_indexes(self):
         in_values: list = [2, 3, 4, 0, 0, 6, 3, 7, 8, 11, 1, 1, 1, 2, 3, 4, 4, 4, 5, 1, 2, 2, 2]
-        overlapping_interval = get_overlapping_indexes(in_values, "video")
+        overlapping_interval = get_overlapping_indexes(in_values, MediaType.VIDEO)
         self.assertEqual(Interval(12, 7), overlapping_interval)
 
-        interval_a = find_longest_non_decreasing_segment(in_values, "audio")
-        interval_v = find_longest_non_decreasing_segment(in_values, "video")
+        interval_a = find_longest_non_decreasing_segment(in_values, MediaType.AUDIO)
+        interval_v = find_longest_non_decreasing_segment(in_values, MediaType.VIDEO)
 
         self.assertEqual(interval_a, interval_v)
         self.assertTrue(interval_a.ini < overlapping_interval.ini)
@@ -321,7 +312,7 @@ class OverlapTest(TestBase):
         in_values[16] = SimilarityEntry(index_i=18, corr=0.95, sim=0.9)
 
         index_values = [obj.index_i for obj in in_values.values()]
-        overlapping_interval = get_overlapping_indexes(index_values, "audio")
+        overlapping_interval = get_overlapping_indexes(index_values, MediaType.AUDIO)
         self.assertEqual(Interval(0, 6), overlapping_interval)
 
     def test_mock_get_matching_frames(self):

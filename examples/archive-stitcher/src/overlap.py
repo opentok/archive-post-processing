@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Final, Optional
 
 import warnings
@@ -41,6 +42,11 @@ HOP_LENGTH: Final[int] = 512
 
 # Number of seconds covered by the similarity analysis window
 WINDOW_NUM_SECS: Final[np.float32] = 1.1
+
+class MediaType(Enum):
+    UNDEFINED = 1
+    AUDIO = 2
+    VIDEO = 3
 
 @dataclass(eq=True)
 class SimilarityEntry:
@@ -275,7 +281,10 @@ def get_increasing_data_intervals(values: list[int], interval_list: list[Interva
     return increasing_intervals_list
 
 
-def remove_glitches(values: int, all_interval_list: list[Interval], media_type: str) -> Interval:
+def remove_glitches(values: int, all_interval_list: list[Interval], media_type: MediaType) -> Interval:
+    if (media_type.name == 'UNDEFINED'):
+        return Interval()
+
     if (len(all_interval_list) == 1):
         return all_interval_list[0]
 
@@ -284,7 +293,7 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
     if (len(interval_list) == 1):
         return interval_list[0]
 
-    threshold = THRESHOLD_AUDIO if media_type == "audio" else THRESHOLD_VIDEO
+    threshold = THRESHOLD_AUDIO if media_type.name == "AUDIO" else THRESHOLD_VIDEO
 
     # Initialization for the first loop
     count = 0
@@ -315,19 +324,7 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
     return Interval(longest_length[0], longest_length[1])
 
 
-def add_unique_element_to_list(max_init_index: int, max_length: int, segments_in_set: set[int, int],
-    segments_in_list: list[Interval]) -> list[Interval]:
-    key = (max_init_index, max_length)
-
-    if key not in segments_in_set:
-        # To avoid duplicity in segments_in_list
-        segments_in_set.add(key)
-        segments_in_list.append(Interval(max_init_index, max_length))
-
-    return segments_in_list
-
-
-def find_longest_non_decreasing_segment(values: list[int], media_type: str) -> Interval:
+def find_longest_non_decreasing_segment(values: list[int], media_type: MediaType) -> Interval:
     prev: Optional[int] = None
 
     max_init_index: int = 0
@@ -337,8 +334,6 @@ def find_longest_non_decreasing_segment(values: list[int], media_type: str) -> I
     curr_length: int = 0
 
     segments_in_set = set()
-    longest_segments_list = list()
-
     for idx, value in enumerate(values):
         if prev is None or value >= prev:
             curr_length += 1
@@ -346,21 +341,22 @@ def find_longest_non_decreasing_segment(values: list[int], media_type: str) -> I
                 max_init_index = curr_init_index
                 max_length = curr_length
             if (idx == len(values) - 1):
-                add_unique_element_to_list(max_init_index, max_length, segments_in_set, longest_segments_list)
+                segments_in_set.add((max_init_index, max_length))
         else:
-            add_unique_element_to_list(max_init_index, max_length, segments_in_set, longest_segments_list)
+            segments_in_set.add((max_init_index, max_length))
             curr_init_index = idx
             curr_length = 1
 
         prev = value
 
+    longest_segments_list = [Interval(init, length) for init, length in segments_in_set]
     if (len(longest_segments_list) == 0):
         return Interval()  # pragma: no cover
 
     return remove_glitches(values, longest_segments_list, media_type)
 
 
-def get_overlapping_indexes(values: list[int], media_type: str) -> Interval:
+def get_overlapping_indexes(values: list[int], media_type: MediaType) -> Interval:
     interval_pre_trimming: Interval = find_longest_non_decreasing_segment(values, media_type)
     if (interval_pre_trimming.is_empty()):
         return Interval()  # pragma: no cover
@@ -421,7 +417,7 @@ def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
                 chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity)
 
     index_values = [obj.index_i for obj in chromas_relationship.values()]
-    overlap_indexes: Interval = get_overlapping_indexes(index_values, "audio")
+    overlap_indexes: Interval = get_overlapping_indexes(index_values, MediaType.AUDIO)
     if overlap_indexes.is_empty():
         return OverlapInterval()  # pragma: no cover
 
@@ -499,7 +495,7 @@ def find_overlap_video(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
         return OverlapInterval()  # pragma: no cover
 
     values_b_list: list[int] = overlap_data_df['similar_frame_b'].tolist()
-    overlap_indexes: Interval = get_overlapping_indexes(values_b_list, "video")
+    overlap_indexes: Interval = get_overlapping_indexes(values_b_list, MediaType.VIDEO)
 
     if overlap_indexes.is_empty():
         return OverlapInterval()
