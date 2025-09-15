@@ -27,6 +27,7 @@ class OverlapTest(TestBase):
                 algo_video=AlgoVideo.MSE,
                 algo_audio=AlgoAudio.PEARSON,
                 debug_plot=False,
+                deep_debug_plot=False,
                 deep_search=False,
                 )
 
@@ -380,6 +381,14 @@ class OverlapTest(TestBase):
 
     def test_plot_archives_relationship(self):
         self.overlap_conf.debug_plot = True
+        self.overlap_conf.deep_debug_plot = False
+        with patch('matplotlib.pyplot.show') as mock_plt:
+            plot_archives_relationship([1, 2, 3, 4, 5, 6, 7], Interval(1, 5))
+            mock_plt.assert_called_once()
+
+    def test_plot_archives_relationship(self):
+        self.overlap_conf.debug_plot = False
+        self.overlap_conf.deep_debug_plot = True
         with patch('matplotlib.pyplot.show') as mock_plt:
             plot_archives_relationship([1, 2, 3, 4, 5, 6, 7], Interval(1, 5))
             mock_plt.assert_called_once()
