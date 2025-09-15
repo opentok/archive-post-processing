@@ -31,6 +31,8 @@ def get_conf() -> Conf:
                         help='whether to allow overwriting the output file (default: false)', default=False)
     parser.add_argument('-d', '--debug-plot', dest='debug_plot', action='store_true',
                         help='whether output debugging plots (default: false)', default=False)
+    parser.add_argument('-dd', '--deep-debug-plot', dest='deep_debug_plot', action='store_true',
+                        help='whether output deep debugging plots (default: false)', default=False)
     parser.add_argument('-s', '--deep-search', dest='deep_search', action='store_true',
                         help='whether to conduct an extensive overlapping search (default: false)', default=False)
 
@@ -57,6 +59,7 @@ def main(conf: Conf):
         algo_video=conf.algo_video,
         algo_audio=conf.algo_audio,
         debug_plot=conf.debug_plot,
+        deep_debug_plot=conf.deep_debug_plot,
         deep_search=conf.deep_search,
         ))
   
