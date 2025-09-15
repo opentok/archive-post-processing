@@ -6,6 +6,7 @@ from datetime import timedelta
 from pathlib import Path
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Final, Optional
 
 import warnings
@@ -32,12 +33,20 @@ RESIZE_FACTOR: Final[np.float32] = 0.5
 # Accepted error to avoid the indetermination: anyValue/0
 ACCEPTED_ERROR: Final[np.float32] = 1e-8
 
+# Number of allowed outliers when selecting the longest non-decreasing segments
+THRESHOLD_AUDIO: Final[int] = 3 
+THRESHOLD_VIDEO: Final[int] = 3
+
 # The number of samples between successive frames (librosa default value)
 HOP_LENGTH: Final[int] = 512
 
 # Number of seconds covered by the similarity analysis window
 WINDOW_NUM_SECS: Final[np.float32] = 1.1
 
+class MediaType(Enum):
+    UNDEFINED = 1
+    AUDIO = 2
+    VIDEO = 3
 
 @dataclass(eq=True)
 class SimilarityEntry:
@@ -83,14 +92,14 @@ def plot_audio_samples(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     plt.close()
 
 
-def plot_archives_relationship(values_list: list, overlap_ind: Interval):
+def plot_archives_relationship(values: list[int], overlap_ind: Interval):
     fig = plt.figure()
 
-    num_archive_a_points = len(values_list)
+    num_archive_a_points = len(values)
 
     ax1 = fig.add_subplot(111)
     x_axis = list(range(0, num_archive_a_points))
-    ax1.plot(x_axis, values_list, marker='*', linestyle='-', color='k')
+    ax1.plot(x_axis, values, marker='*', linestyle='-', color='k')
     ax1.set_xlabel(f'archive_a frame number')
     ax1.set_ylabel(f'archive_b most similar frame to archive_a frames')
     ax1.tick_params(axis='x', labelcolor='blue')
@@ -98,10 +107,10 @@ def plot_archives_relationship(values_list: list, overlap_ind: Interval):
 
     x_start = overlap_ind.ini
     x_end = overlap_ind.end
-    if x_start < len(values_list):
+    if x_start < len(values):
         slope = 0.999  # 45 degrees
-        x_vals = np.linspace(x_start, x_start + len(values_list[x_start:x_end]), 100)
-        y_vals = values_list[x_start] + slope * (x_vals - x_start)
+        x_vals = np.linspace(x_start, x_start + len(values[x_start:x_end]), 100)
+        y_vals = values[x_start] + slope * (x_vals - x_start)
         ax1.plot(x_vals, y_vals, label='45° Line', linestyle='--', color='cyan')
 
     ax1.axvline(x=x_start, color='g', linestyle='--')
@@ -230,7 +239,92 @@ def get_matching_frames(archive_a: Path, archive_b: Path, conf: FindOverlapArgs)
     return similar_frames_df
 
 
-def find_longest_non_decreasing_segment(values: list) -> Interval:
+def trim_init_duplicates_in_segment(values: list[int], interval: Interval) -> Interval:
+    # It returns end_ind - 1 if all the elements are the same
+    ini_ind: int = interval.ini
+    end_ind: int = interval.ini + interval.length
+    new_ini: int = next((i - 1 for i in range(ini_ind + 1, end_ind) if values[i] != values[i - 1]), end_ind - 1)
+    return Interval(new_ini, end_ind - new_ini)
+
+
+def trim_end_duplicates_in_segment(values: list[int], interval: Interval) -> Interval:
+    # For example, to remove final black frames
+    ini_ind: int = interval.ini
+    end_ind: int = interval.ini + interval.length
+    values = values[ini_ind:end_ind][::-1]
+    i: int = next((i for i, x in enumerate(values) if x != values[0]), len(values))
+    return Interval(ini_ind, len(values[i:]) + 1)
+
+
+def is_data_increasing_in_45_degrees_trend(values: list[int]) -> bool:
+    if len(values) < 4:
+        return False  # Too short
+
+    diffs = [b - a for a, b in zip(values[:-1], values[1:])]
+
+    # return True if at least 80% (// 1.25) of all the values in the list diffs are close to one
+    return sum(abs(x - 1) <= 1 for x in diffs) > (len(diffs) // 1.25)
+
+
+def get_increasing_data_intervals(values: list[int], interval_list: list[Interval]) -> list[Interval]:
+    increasing_intervals_list = list()
+
+    for i in range(0, len(interval_list)):
+        trimmed_ini_interval: Interval = trim_init_duplicates_in_segment(values, interval_list[i])
+        trimmed_interval: Interval = trim_end_duplicates_in_segment(values, trimmed_ini_interval)
+
+        filtered_vals = values[trimmed_interval.ini:(trimmed_interval.ini + trimmed_interval.length)]
+
+        if (is_data_increasing_in_45_degrees_trend(filtered_vals)):
+            increasing_intervals_list.append(interval_list[i])
+
+    return increasing_intervals_list
+
+
+def remove_glitches(values: int, all_interval_list: list[Interval], media_type: MediaType) -> Interval:
+    if (media_type.name == 'UNDEFINED'):
+        return Interval()
+
+    if (len(all_interval_list) == 1):
+        return all_interval_list[0]
+
+    interval_list: list = get_increasing_data_intervals(values, all_interval_list)
+
+    if (len(interval_list) == 1):
+        return interval_list[0]
+
+    threshold = THRESHOLD_AUDIO if media_type.name == "AUDIO" else THRESHOLD_VIDEO
+
+    # Initialization for the first loop
+    count = 0
+    final_ini_index = interval_list[0].ini
+    final_end_index = interval_list[0].length
+
+    filtered_intervals = list()
+
+    for i in range(0, len(interval_list) - 1):
+        end_index_prev = interval_list[i].ini + interval_list[i].length
+        ini_index_current = interval_list[i+1].ini
+
+        if (ini_index_current - end_index_prev) < threshold:
+            final_ini_index = interval_list[i - count].ini
+            final_end_index += interval_list[i+1].length
+            count += 1
+        else:
+            filtered_intervals.append([final_ini_index, final_end_index])
+            final_ini_index = interval_list[i+1].ini
+            final_end_index = interval_list[i+1].length
+            count = 0
+
+        if (i == (len(interval_list) - 2)):
+            filtered_intervals.append([final_ini_index, final_end_index])
+
+    longest_length = max(filtered_intervals, key=lambda x: x[1])
+
+    return Interval(longest_length[0], longest_length[1])
+
+
+def find_longest_non_decreasing_segment(values: list[int], media_type: MediaType) -> Interval:
     prev: Optional[int] = None
 
     max_init_index: int = 0
@@ -239,32 +333,36 @@ def find_longest_non_decreasing_segment(values: list) -> Interval:
     curr_init_index: int = 0
     curr_length: int = 0
 
+    segments_in_set = set()
     for idx, value in enumerate(values):
         if prev is None or value >= prev:
             curr_length += 1
             if max_length < curr_length:
                 max_init_index = curr_init_index
                 max_length = curr_length
+            if (idx == len(values) - 1):
+                segments_in_set.add((max_init_index, max_length))
         else:
+            segments_in_set.add((max_init_index, max_length))
             curr_init_index = idx
             curr_length = 1
 
         prev = value
 
-    return Interval(max_init_index, max_length)
+    longest_segments_list = [Interval(init, length) for init, length in segments_in_set]
+    if (len(longest_segments_list) == 0):
+        return Interval()  # pragma: no cover
+
+    return remove_glitches(values, longest_segments_list, media_type)
 
 
-def trim_init_duplicates_in_segment(values: list, interval: Interval) -> Interval:
-    # It returns end_ind - 1 if all the elements are the same
-    ini_ind: int = interval.ini
-    end_ind: int = interval.end
-    new_ini: int = next((i - 1 for i in range(ini_ind + 1, end_ind) if values[i] != values[i - 1]), end_ind - 1)
-    return Interval(new_ini, end_ind - new_ini + 1)
+def get_overlapping_indexes(values: list[int], media_type: MediaType) -> Interval:
+    interval_pre_trimming: Interval = find_longest_non_decreasing_segment(values, media_type)
+    if (interval_pre_trimming.is_empty()):
+        return Interval()  # pragma: no cover
 
-
-def get_overlapping_indexes(values: list) -> Interval:
-    interval: Interval = find_longest_non_decreasing_segment(values)
-    return trim_init_duplicates_in_segment(values, interval)
+    interval_ini_trimmed: Interval = trim_init_duplicates_in_segment(values, interval_pre_trimming)
+    return trim_end_duplicates_in_segment(values, interval_ini_trimmed)
 
 
 def slide_last_chroma_a_window_over_chroma_b(chroma_a: np.ndarray, chroma_b: np.ndarray,
@@ -319,7 +417,7 @@ def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
                 chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity)
 
     index_values = [obj.index_i for obj in chromas_relationship.values()]
-    overlap_indexes: Interval = get_overlapping_indexes(index_values)
+    overlap_indexes: Interval = get_overlapping_indexes(index_values, MediaType.AUDIO)
     if overlap_indexes.is_empty():
         return OverlapInterval()  # pragma: no cover
 
@@ -397,7 +495,7 @@ def find_overlap_video(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
         return OverlapInterval()  # pragma: no cover
 
     values_b_list: list[int] = overlap_data_df['similar_frame_b'].tolist()
-    overlap_indexes: Interval = get_overlapping_indexes(values_b_list)
+    overlap_indexes: Interval = get_overlapping_indexes(values_b_list, MediaType.VIDEO)
 
     if overlap_indexes.is_empty():
         return OverlapInterval()
