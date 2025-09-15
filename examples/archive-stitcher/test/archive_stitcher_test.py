@@ -30,6 +30,7 @@ class ArchiveStitcherTest(TestBase):
                 algo_audio=AlgoAudio.PEARSON,
                 allow_output_overwrite=True,
                 debug_plot=False,
+                deep_debug_plot=False,
                 deep_search=False,
                 )
         self.assertEqual(expected_conf, archive_stitcher.get_conf())
