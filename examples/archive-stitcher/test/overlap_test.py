@@ -134,9 +134,9 @@ class OverlapTest(TestBase):
 
         expected_overlap = MediaOverlap(
                 audio=OverlapInterval(
-                    timedelta(seconds=57, microseconds=457000),
-                    timedelta(milliseconds=0),
-                    timedelta(seconds=1, microseconds=984000)
+                    timedelta(seconds=58, microseconds=23667),
+                    timedelta(microseconds=586667),
+                    timedelta(seconds=1)
                     ),
                 video=OverlapInterval())
         overlap: MediaOverlap = find_overlap(self.conf.archive_a, self.conf.archive_b, self.overlap_conf)
@@ -153,12 +153,12 @@ class OverlapTest(TestBase):
                 audio=OverlapInterval(
                     timedelta(seconds=57, microseconds=457000),
                     timedelta(milliseconds=0),
-                    timedelta(seconds=1, microseconds=984000)
+                    timedelta(seconds=1)
                     ),
                 video=OverlapInterval(
-                    timedelta(seconds=57, microseconds=480000),
-                    timedelta(seconds=0, microseconds=40000),
-                    timedelta(seconds=2, microseconds=4000)
+                    timedelta(seconds=58, microseconds=23500),
+                    timedelta(seconds=0, microseconds=586650),
+                    timedelta(seconds=1)
                     ))
         overlap: MediaOverlap = find_overlap(self.conf.archive_a, self.conf.archive_b, self.overlap_conf)
 
@@ -240,6 +240,27 @@ class OverlapTest(TestBase):
 
         self.assertEqual(get_increasing_data_intervals(values, interval_list), expected_interval_list)
 
+    def test_add_unique_element_to_list_if_element_is_not_in_the_set(self):
+        segments_in_set = set()
+        segments_in_list = list()
+        interval_list = add_unique_element_to_list(0, 150, segments_in_set, segments_in_list)
+
+        self.assertEqual([Interval(ini=0, length=150)], interval_list)
+
+    def test_add_unique_element_to_list_adds_another_element_to_a_non_empty_list(self):
+        segments_in_set = {(0, 117)}
+        segments_in_list = [Interval(ini=0, length=117)]
+        interval_list = add_unique_element_to_list(117, 168, segments_in_set, segments_in_list)
+
+        self.assertEqual([Interval(ini=0, length=117), Interval(ini=117, length=168)], interval_list)
+
+    def test_add_unique_element_to_list_does_not_add_a_repeated_element(self):
+        segments_in_set = {(0, 117), (117, 168)}
+        segments_in_list = [Interval(ini=0, length=117), Interval(ini=117, length=168)]
+        interval_list = add_unique_element_to_list(117, 168, segments_in_set, segments_in_list)
+
+        self.assertEqual(segments_in_list, interval_list)
+
     def test_remove_glitches_discards_intervals_that_are_not_glitches(self):
         values = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 13, 13, 14, 14, 15, 15, 16, 16, 21, 22,
             23, 24, 25, 26, 27, 28, 29, 30, 31, 31, 33, 34, 35, 36, 37, 25, 26, 27, 28, 29, 30, 31, 32,
@@ -251,7 +272,7 @@ class OverlapTest(TestBase):
         longest_segments_list = [Interval(ini=0, length=12), Interval(ini=12, length=25),Interval(ini=37, length=8),
             Interval(ini=64, length=6), Interval(ini=90, length=33), Interval(ini=123, length=11)]
 
-        self.assertEqual(Interval(ini=0, length=45), remove_glitches(values, longest_segments_list, MediaType.AUDIO))
+        self.assertEqual(Interval(ini=90, length=33), remove_glitches(values, longest_segments_list, MediaType.AUDIO))
 
     def test_remove_glitches_joins_consecutive_intervals_with_outliers(self):
         values = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 13, 13, 14, 14, 15, 15, 16, 16, 21, 22,
@@ -263,7 +284,7 @@ class OverlapTest(TestBase):
             270, 304, 303, 301, 300]
         longest_segments_list = [Interval(ini=0, length=12), Interval(ini=12, length=25), Interval(ini=90, length=33)]
 
-        self.assertEqual(Interval(ini=0, length=37), remove_glitches(values, longest_segments_list, MediaType.AUDIO))
+        self.assertEqual(Interval(ini=90, length=33), remove_glitches(values, longest_segments_list, MediaType.AUDIO))
 
     def test_remove_glitches_returns_empty_overlap_interval_if_media_type_is_undefined(self):
         values = [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 13, 13, 14, 14, 15, 15, 16, 16, 21, 22,

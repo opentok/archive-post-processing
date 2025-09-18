@@ -48,7 +48,7 @@ class Fraction:
         return f"{self.num}/{self.den}"
 
 
-@dataclass(eq=True)
+@dataclass(eq=True, order=True)
 class Interval:
     ini: int = 0
     length: int = 0
