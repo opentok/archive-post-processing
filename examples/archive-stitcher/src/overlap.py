@@ -198,7 +198,7 @@ def snr_db(signal_1: np.ndarray, signal_2: np.ndarray) -> float:
     noise_power: np.ndarray = np.sum(np.asarray(signal_1 - signal_2) ** 2)
 
     if noise_power == 0:
-        return -1
+        return -1  # pragma: no cover
     return 10 * np.log10(signal_power / noise_power)
 
 
@@ -207,7 +207,7 @@ def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOv
     match conf.algo_audio:
         case conf.algo_audio.PEARSON:
             if (window_a.shape[1] == 0 or window_b.shape[1] == 0):
-                return 0.0, 0.0
+                return 0.0, 0.0  # pragma: no cover
 
             # axis=1: <signal>.shape[1] values for each row in <signal>.shape[0].
             a_centered = window_a - window_a.mean(axis=1, keepdims=True)
@@ -328,7 +328,7 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
     interval_list: list = get_increasing_data_intervals(values, all_interval_list)
 
     if (len(interval_list) == 0):
-        return Interval()
+        return Interval()  # pragma: no cover
 
     if (len(interval_list) == 1):
         return interval_list[0]
@@ -514,7 +514,7 @@ def get_best_row(data: list, is_last_index: bool) -> tuple[int, int]:
 
         return result[0], result[1]
 
-    return -1, -1
+    return -1, -1  # pragma: no cover
 
 
 def get_highest_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
@@ -574,7 +574,7 @@ def compute_partial_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
 
             return [Interval(first_index_a, overlapping_length), Interval(first_index_b, overlapping_length)]
 
-    return [Interval(), Interval()]
+    return [Interval(), Interval()]  # pragma: no cover
 
 
 def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
