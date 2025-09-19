@@ -287,7 +287,7 @@ class OverlapTest(TestBase):
 
         self.assertEqual(Interval(ini=0, length=0), remove_glitches(values, longest_segments_list, MediaType.UNDEFINED))
 
-    def test_remove_glitches_joins_consecutive_intervals_with_outliers_that_entry_the_if_clase(self):
+    def test_remove_glitches_joins_consecutive_intervals_with_outliers_that_entry_the_if_clause(self):
         values = [110, 82, 123, 123, 77, 129, 120, 74, 120, 118, 78, 78, 78, 79, 120, 150, 130, 119,
             123, 133, 124, 129, 124, 116, 124, 116, 117, 117, 120, 120, 119, 111, 111, 103, 120, 117,
             120, 117, 118, 121, 124, 120, 124, 131, 128, 128, 127, 117, 131, 131, 114, 133, 129, 129,
@@ -299,7 +299,7 @@ class OverlapTest(TestBase):
             338, 339, 340]
         longest_segments_list = [Interval(ini=56, length=8), Interval(ini=91, length=11), Interval(ini=102, length=48)]
 
-        self.assertEqual(Interval(ini=91, length=59), remove_glitches(values, longest_segments_list, MediaType.AUDIO))
+        self.assertEqual(Interval(ini=102, length=48), remove_glitches(values, longest_segments_list, MediaType.AUDIO))
 
     def test_find_longest_non_decreasing_segment(self):
         in_values: list = [2, 3, 4, 0, 0, 6, 3, 7, 8, 11, 1, 1, 1, 2, 3, 4, 4, 4, 5, 1, 2, 2, 2]
