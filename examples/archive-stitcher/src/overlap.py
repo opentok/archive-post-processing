@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Copyright (c) Vonage, 2025
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from dataclasses import dataclass
@@ -630,9 +630,12 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
         print(f"Offset: {offset}, MSE: {res}, IntervalA: {interval_a}, IntervalB: {interval_b}")
         return res
 
+    ini = datetime.utcnow()
     print("Optimizing the chroma alignment...")
     result = gp_minimize(optimize_step, [Integer(MIN_SIGNAL_LEN,  chroma_a.shape[1] + chroma_b.shape[1] - MIN_SIGNAL_LEN)])
-    print(result)
+    end = datetime.utcnow()
+    print(f'Optimization completed in {(end - ini)}')
+
     optimal_offset = int(result.x[0])
     return get_chroma_intervals_from_offset(optimal_offset)
 
@@ -656,7 +659,7 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
     assert(sr_a == sr_b and sr_a == rate)
 
     overlap_indeces_a, overlap_indeces_b = compute_overlapping_cqt(y_a_trimmed, y_b_trimmed, rate, conf)
-    if (overlap_indeces_a.end == 0 or overlap_indeces_b.end == 0):
+    if (overlap_indeces_a.length == 0 or overlap_indeces_b.length == 0):
         return OverlapInterval()  # pragma: no cover
 
     # correct the indices due to the trim operation
