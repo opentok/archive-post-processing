@@ -596,7 +596,6 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
 
     len_a = chroma_a.shape[1]
     len_b = chroma_b.shape[1]
-    import pdb; pdb.set_trace()
     def get_chroma_intervals_from_offset(offset: int) -> tuple[Interval, Interval]:
         # offset determines how much chroma_b overlaps chroma_a starting on the right of chroma_a
         # offset == 0 means chroma_b starts exactly at the start of chroma_a
