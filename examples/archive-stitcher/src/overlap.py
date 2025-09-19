@@ -302,8 +302,8 @@ def is_data_increasing_in_45_degrees_trend(values: list[int]) -> bool:
 
     diffs = [b - a for a, b in zip(values[:-1], values[1:])]
 
-    # return True if at least 85% of all the values in the list diffs are close to one
-    return sum(abs(x - 1) <= 1 for x in diffs) / len(diffs) >= 0.85
+    # return True if at least 90% of all the values in the list diffs are close to one
+    return sum(abs(x - 1) <= 1 for x in diffs) / len(diffs) >= 0.90
 
 
 def get_increasing_data_intervals(values: list[int], interval_list: list[Interval]) -> list[Interval]:
