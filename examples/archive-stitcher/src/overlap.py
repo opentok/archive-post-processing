@@ -626,6 +626,7 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
         offset = int(offset[0])
         interval_a, interval_b = get_chroma_intervals_from_offset(offset)
 
+        # MSE between the two chromas in the interval
         res = np.mean((chroma_a[:, interval_a.ini:interval_a.end + 1] - chroma_b[:, interval_b.ini:interval_b.end + 1]) ** 2)
         print(f"Offset: {offset}, MSE: {res}, IntervalA: {interval_a}, IntervalB: {interval_b}")
         return res
