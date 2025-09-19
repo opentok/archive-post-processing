@@ -19,6 +19,8 @@ import pandas as pd
 import pywt
 
 from skimage.feature import local_binary_pattern
+from skopt import gp_minimize
+from skopt.space import Integer
 
 from .data_model import Interval, FindOverlapArgs, MediaOverlap, OverlapInterval
 from .utils import printerr, raise_error
@@ -583,14 +585,53 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     chroma_a: np.ndarray = librosa.feature.chroma_cqt(y=y_a, sr=rate, hop_length=HOP_LENGTH)
     chroma_b: np.ndarray = librosa.feature.chroma_cqt(y=y_b, sr=rate, hop_length=HOP_LENGTH)
 
-    # The win_frames sliding window approximately covers WINDOW_NUM_SECS amount of time in the time domain
-    win_frames: int = int(WINDOW_NUM_SECS * np.ceil(conf.audio_desc.sample_rate/HOP_LENGTH))
+    # compute mean square error between the two chromas
+    if (chroma_a.shape[1] < MIN_SIGNAL_LEN or chroma_b.shape[1] < MIN_SIGNAL_LEN):
+        printerr('The audio samples are too short or too silent to compute the chroma features')
+        return Interval(), Interval()  # pragma: no cover
 
-    if not conf.deep_search:
-        return compute_partial_audio_algorithm(chroma_a, chroma_b, win_frames, conf)
+    len_a = chroma_a.shape[1]
+    len_b = chroma_b.shape[1]
+    import pdb; pdb.set_trace()
+    def get_chroma_intervals_from_offset(offset: int) -> tuple[Interval, Interval]:
+        # offset determines how much chroma_b overlaps chroma_a starting on the right of chroma_a
+        # offset == 0 means chroma_b starts exactly at the start of chroma_a
+        # offset > 0 means chroma_b starts inside of chroma_a
+        # offset < 0 means chroma_a starts inside of chroma_b
 
-    return compute_deep_audio_algorithm(chroma_a, chroma_b, win_frames, conf)
+        # so, lets imagine a coordinate axis in which we place the start of chroma_b at 0 and the end of chroma_a is at 0 + offset
+        start_a_in_axis = offset - len_a
+        end_a_in_axis = offset
+        start_b_in_axis = 0
+        end_b_in_axis = len_b
 
+        overlap_start_in_axis = max(start_a_in_axis, start_b_in_axis)
+        overlap_end_in_axis = min(end_a_in_axis, end_b_in_axis)
+
+        if overlap_end_in_axis <= overlap_start_in_axis:
+            return Interval(), Interval()  # pragma: no cover
+
+        interval_a_start = overlap_start_in_axis - start_a_in_axis
+        interval_a_end = overlap_end_in_axis - start_a_in_axis
+
+        interval_b_start = overlap_start_in_axis - start_b_in_axis
+        interval_b_end = overlap_end_in_axis - start_b_in_axis
+
+        return Interval(interval_a_start, interval_a_end - interval_a_start), Interval(interval_b_start, interval_b_end - interval_b_start)
+
+    def optimize_step(offset: list[int]) -> float:
+        offset = int(offset[0])
+        interval_a, interval_b = get_chroma_intervals_from_offset(offset)
+
+        res = np.mean((chroma_a[:, interval_a.ini:interval_a.end + 1] - chroma_b[:, interval_b.ini:interval_b.end + 1]) ** 2)
+        print(f"Offset: {offset}, MSE: {res}, IntervalA: {interval_a}, IntervalB: {interval_b}")
+        return res
+
+    print("Optimizing the chroma alignment...")
+    result = gp_minimize(optimize_step, [Integer(MIN_SIGNAL_LEN,  chroma_a.shape[1] + chroma_b.shape[1] - MIN_SIGNAL_LEN)])
+    print(result)
+    optimal_offset = int(result.x[0])
+    return get_chroma_intervals_from_offset(optimal_offset)
 
 def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> OverlapInterval:
     rate: float = conf.audio_desc.sample_rate
@@ -605,11 +646,19 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
                              offset=0,
                              duration=duration_b.total_seconds())
 
+    # trim silence at the beginning and at the end of both audio samples
+    y_a_trimmed, y_a_trimmed_index = librosa.effects.trim(y_a, top_db=20)
+    y_b_trimmed, y_b_trimmed_index = librosa.effects.trim(y_b, top_db=20)
+
     assert(sr_a == sr_b and sr_a == rate)
 
-    overlap_indeces_a, overlap_indeces_b = compute_overlapping_cqt(y_a, y_b, rate, conf)
+    overlap_indeces_a, overlap_indeces_b = compute_overlapping_cqt(y_a_trimmed, y_b_trimmed, rate, conf)
     if (overlap_indeces_a.end == 0 or overlap_indeces_b.end == 0):
         return OverlapInterval()  # pragma: no cover
+
+    # correct the indices due to the trim operation
+    overlap_indeces_a.ini += y_a_trimmed_index[0]
+    overlap_indeces_b.ini += y_b_trimmed_index[0]
 
     start_time_a = librosa.frames_to_time(overlap_indeces_a.ini, sr=rate, hop_length=HOP_LENGTH)
     start_time_b = librosa.frames_to_time(overlap_indeces_b.ini, sr=rate, hop_length=HOP_LENGTH)
