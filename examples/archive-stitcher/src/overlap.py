@@ -38,6 +38,9 @@ ACCEPTED_ERROR: Final[np.float32] = 1e-8
 # Minimun accepted signal length
 MIN_SIGNAL_LEN: Final[int] = 4
 
+# Signal length percentage to cap the minimum length allowed when finding overlapping periods
+THRESHOLD_LENGTH_PERCENTAJE: Final[int] = 0.1  # 10%
+
 # Percentage of allowed outliers when selecting the longest non-decreasing segments
 THRESHOLD_OUTLIERS_PERCENTAJE: Final[int] = 0.1  # 10%
 
@@ -301,8 +304,8 @@ def is_data_increasing_in_45_degrees_trend(values: list[int]) -> bool:
 
     diffs = [b - a for a, b in zip(values[:-1], values[1:])]
 
-    # return True if at least 80% (// 1.25) of all the values in the list diffs are close to one
-    return sum(abs(x - 1) <= 1 for x in diffs) > (len(diffs) // 1.25)
+    # return True if at least 90% of all the values in the list diffs are close to one
+    return sum(abs(x - 1) <= 1 for x in diffs) / len(diffs) >= 0.9
 
 
 def get_increasing_data_intervals(values: list[int], interval_list: list[Interval]) -> list[Interval]:
@@ -393,7 +396,7 @@ def find_longest_non_decreasing_segment(values: list[int], media_type: MediaType
     for idx, value in enumerate(values):
         if prev is None or value >= prev:
             curr_length += 1
-            if max_length < curr_length:
+            if max_length < curr_length or (curr_length > len(values) * THRESHOLD_LENGTH_PERCENTAJE):
                 max_init_index = curr_init_index
                 max_length = curr_length
             if (idx == len(values) - 1):
@@ -572,6 +575,7 @@ def compute_partial_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
 
         if (last_index_a > -1):
             last_index_a = update_last_index_a_precision(chroma_a, chroma_b, win_frames, last_index_a, last_index_b)
+
             overlapping_length: int = last_index_a - first_index_a
 
             return [Interval(first_index_a, overlapping_length), Interval(first_index_b, overlapping_length)]
