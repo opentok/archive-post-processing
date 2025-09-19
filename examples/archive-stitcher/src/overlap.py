@@ -33,15 +33,20 @@ RESIZE_FACTOR: Final[np.float32] = 0.5
 # Accepted error to avoid the indetermination: anyValue/0
 ACCEPTED_ERROR: Final[np.float32] = 1e-8
 
-# Number of allowed outliers when selecting the longest non-decreasing segments
-THRESHOLD_AUDIO: Final[int] = 3 
-THRESHOLD_VIDEO: Final[int] = 3
+# Minimun accepted signal length
+MIN_SIGNAL_LEN: Final[int] = 4
+
+# Signal length percentage to cap the minimum length allowed when finding overlapping periods
+THRESHOLD_LENGTH_PERCENTAJE: Final[int] = 0.1  # 10%
+
+# Percentage of allowed outliers when selecting the longest non-decreasing segments
+THRESHOLD_OUTLIERS_PERCENTAJE: Final[int] = 0.1  # 10%
 
 # The number of samples between successive frames (librosa default value)
 HOP_LENGTH: Final[int] = 512
 
 # Number of seconds covered by the similarity analysis window
-WINDOW_NUM_SECS: Final[np.float32] = 1.1
+WINDOW_NUM_SECS: Final[np.float32] = 1
 
 class MediaType(Enum):
     UNDEFINED = 1
@@ -174,13 +179,48 @@ def release_video(video: cv2.VideoCapture):
         video.release()
 
 
+def snr_db(signal_1: np.ndarray, signal_2: np.ndarray) -> float:
+    '''
+    Compute the Signal-to-Noise Ratio (SNR) in decibels.
+
+    Parameters:
+        signal_1: The original signal_1
+        signal_2: The original signal_2
+            The noise is computed as: signal_1 - signal_2
+
+    Returns:
+        float: SNR value in decibels (dB).
+    '''
+    len_signal_1 = signal_1.shape[1]
+    len_signal_2 = signal_2.shape[1]
+
+    signal_1 = signal_1[:, 0:min(len_signal_1, len_signal_2)]
+    signal_2 = signal_2[:, 0:min(len_signal_1, len_signal_2)]
+
+    signal_power: np.ndarray = np.sum(np.asarray(signal_1) ** 2)
+    noise_power: np.ndarray = np.sum(np.asarray(signal_1 - signal_2) ** 2)
+
+    if noise_power == 0:
+        return -1  # pragma: no cover
+    return 10 * np.log10(signal_power / noise_power)
+
+
 def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOverlapArgs) -> tuple[float, float]:
     # Both windows have 12 rows with equal or approximately win_frames columns, i.e, (12 rows, win_frames columns)
     match conf.algo_audio:
         case conf.algo_audio.PEARSON:
+            if (window_a.shape[1] == 0 or window_b.shape[1] == 0):
+                return 0.0, 0.0  # pragma: no cover
+
             # axis=1: <signal>.shape[1] values for each row in <signal>.shape[0].
             a_centered = window_a - window_a.mean(axis=1, keepdims=True)
             b_centered = window_b - window_b.mean(axis=1, keepdims=True)
+
+            # Force both signals to have the same size
+            len_a_centered = a_centered.shape[1]
+            len_b_centered = b_centered.shape[1]
+            a_centered = a_centered[:, 0:min(len_a_centered, len_b_centered)]
+            b_centered = b_centered[:, 0:min(len_a_centered, len_b_centered)]
 
             # Compute the numerator: sum accros columns for each row
             numerator = np.sum(a_centered * b_centered, axis=1)
@@ -257,13 +297,13 @@ def trim_end_duplicates_in_segment(values: list[int], interval: Interval) -> Int
 
 
 def is_data_increasing_in_45_degrees_trend(values: list[int]) -> bool:
-    if len(values) < 4:
+    if len(values) < MIN_SIGNAL_LEN:
         return False  # Too short
 
     diffs = [b - a for a, b in zip(values[:-1], values[1:])]
 
-    # return True if at least 80% (// 1.25) of all the values in the list diffs are close to one
-    return sum(abs(x - 1) <= 1 for x in diffs) > (len(diffs) // 1.25)
+    # return True if at least 85% of all the values in the list diffs are close to one
+    return sum(abs(x - 1) <= 1 for x in diffs) / len(diffs) >= 0.85
 
 
 def get_increasing_data_intervals(values: list[int], interval_list: list[Interval]) -> list[Interval]:
@@ -290,10 +330,11 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
 
     interval_list: list = get_increasing_data_intervals(values, all_interval_list)
 
+    if (len(interval_list) == 0):
+        return Interval()  # pragma: no cover
+
     if (len(interval_list) == 1):
         return interval_list[0]
-
-    threshold = THRESHOLD_AUDIO if media_type.name == "AUDIO" else THRESHOLD_VIDEO
 
     # Initialization for the first loop
     count = 0
@@ -306,9 +347,12 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
         end_index_prev = interval_list[i].ini + interval_list[i].length
         ini_index_current = interval_list[i+1].ini
 
-        if (ini_index_current - end_index_prev) < threshold:
-            final_ini_index = interval_list[i - count].ini
-            final_end_index += interval_list[i+1].length
+        threshold = int(max(interval_list[i].length, interval_list[i+1].length) * THRESHOLD_OUTLIERS_PERCENTAJE)
+
+        is_value_diff_low: bool = abs(values[end_index_prev - 1] - values[ini_index_current]) < threshold
+        if (ini_index_current - end_index_prev) < threshold and is_value_diff_low:
+            final_ini_index = interval_list[i-count].ini
+            final_end_index += (interval_list[i+1].length + ini_index_current - end_index_prev)
             count += 1
         else:
             filtered_intervals.append([final_ini_index, final_end_index])
@@ -324,6 +368,18 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
     return Interval(longest_length[0], longest_length[1])
 
 
+def add_unique_element_to_list(max_init_index: int, max_length: int, segments_in_set: set[int, int],
+    segments_in_list: list[Interval]) -> list[Interval]:
+    key = (max_init_index, max_length)
+
+    if key not in segments_in_set:
+        # To avoid duplicity in segments_in_list
+        segments_in_set.add(key)
+        segments_in_list.append(Interval(max_init_index, max_length))
+
+    return segments_in_list
+
+
 def find_longest_non_decreasing_segment(values: list[int], media_type: MediaType) -> Interval:
     prev: Optional[int] = None
 
@@ -334,22 +390,22 @@ def find_longest_non_decreasing_segment(values: list[int], media_type: MediaType
     curr_length: int = 0
 
     segments_in_set = set()
+    longest_segments_list = list()
     for idx, value in enumerate(values):
         if prev is None or value >= prev:
             curr_length += 1
-            if max_length < curr_length:
+            if max_length < curr_length or (curr_length > len(values) * THRESHOLD_LENGTH_PERCENTAJE):
                 max_init_index = curr_init_index
                 max_length = curr_length
             if (idx == len(values) - 1):
-                segments_in_set.add((max_init_index, max_length))
+                add_unique_element_to_list(max_init_index, max_length, segments_in_set, longest_segments_list)
         else:
-            segments_in_set.add((max_init_index, max_length))
+            add_unique_element_to_list(max_init_index, max_length, segments_in_set, longest_segments_list)
             curr_init_index = idx
             curr_length = 1
 
         prev = value
 
-    longest_segments_list = [Interval(init, length) for init, length in segments_in_set]
     if (len(longest_segments_list) == 0):
         return Interval()  # pragma: no cover
 
@@ -361,42 +417,41 @@ def get_overlapping_indexes(values: list[int], media_type: MediaType) -> Interva
     if (interval_pre_trimming.is_empty()):
         return Interval()  # pragma: no cover
 
+    # Remove not monotically increasing values at the beginning and at the end of the overlapping period
     interval_ini_trimmed: Interval = trim_init_duplicates_in_segment(values, interval_pre_trimming)
-    return trim_end_duplicates_in_segment(values, interval_ini_trimmed)
+    interval_trimmed: Interval = trim_end_duplicates_in_segment(values, interval_ini_trimmed)
+
+    reduced_values = values[interval_trimmed.ini:interval_trimmed.ini + interval_trimmed.length]
+    jump_in_frames: int = reduced_values[len(reduced_values) - 1] - reduced_values[len(reduced_values) - 2]
+    length: int = interval_trimmed.length if jump_in_frames < 3 else interval_trimmed.length - 1
+
+    return Interval(interval_trimmed.ini, length)
 
 
-def slide_last_chroma_a_window_over_chroma_b(chroma_a: np.ndarray, chroma_b: np.ndarray,
-    win_frames: int, conf: FindOverlapArgs) -> int:
-    last_win_a: np.ndarray  = chroma_a[:, (chroma_a.shape[1] - win_frames):]
-    last_win_a_norm: np.ndarray  = (last_win_a - np.mean(last_win_a)) / max(np.std(last_win_a), ACCEPTED_ERROR)
+def update_last_index_a_precision(chroma_a: np.ndarray, chroma_b: np.ndarray,
+    win_frames: int, index_a: int, index_b: int) -> int:
+    # 100ms of window
+    small_win = max(int((win_frames*0.1)/WINDOW_NUM_SECS), 2)
 
-    most_similar_j: int = -1
-    j_similarity: int = -1
-    j_max_corr: int = -1
-    for j in range(0, chroma_b.shape[1] - win_frames):
-        window_b: np.ndarray = chroma_b[:, j:j + win_frames]
+    snr = list()
+    for j in range(0, win_frames):
+        window_a: np.ndarray = chroma_a[:, index_a + j:min(index_a + j + small_win, index_a + win_frames)]
+        window_b: np.ndarray = chroma_b[:, index_b + j:min(index_b + j + small_win, index_b + win_frames)]
+
+        if (window_a.shape[1] < MIN_SIGNAL_LEN or window_b.shape[1] < MIN_SIGNAL_LEN):
+            break
+        # Windows normalization
+        win_a_norm: np.ndarray = (window_a - np.mean(window_a)) / max(np.std(window_a), ACCEPTED_ERROR)
         win_b_norm: np.ndarray = (window_b - np.mean(window_b)) / max(np.std(window_b), ACCEPTED_ERROR)
 
-        max_corr, similarity = compute_audio_score(last_win_a_norm, win_b_norm, conf)
+        snr.append(snr_db(win_a_norm, win_b_norm))
 
-        if (similarity > j_similarity) and (max_corr > j_max_corr):
-            most_similar_j = j
-            j_similarity = similarity
-            j_max_corr = max_corr
-
-    return most_similar_j
+    neg_indices = [i for i, v in enumerate(snr) if v < 0]
+    last_index_a: int = (index_a + neg_indices[0]) if neg_indices else (index_a + win_frames)
+    return min(last_index_a, chroma_a.shape[1])
 
 
-def get_overlapping_audio_indexes_from_unique_scanning(chroma_a_len: int, win_frames: int,
-    most_similar_index: int) -> tuple[Interval, Interval]:
-    # Hypothesis: audio overlapping starts from the first sample of the second audio signal
-    win_a_index = max(0, chroma_a_len - win_frames - most_similar_index)
-    overlapping_length: int = chroma_a_len - win_a_index
-
-    return [Interval(win_a_index, overlapping_length), Interval(0, overlapping_length)]
-
-
-def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
+def compute_deep_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
     win_frames: int, conf: FindOverlapArgs) -> tuple[Interval, Interval]:
     chromas_relationship: dict[int, SimilarityEntry] = {}
     for i in range(0, chroma_a.shape[1] - win_frames):
@@ -405,7 +460,7 @@ def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
         for j in range(0, chroma_b.shape[1] - win_frames):
             window_b: np.ndarray = chroma_b[:, j:j + win_frames]
 
-            # Correlation windows normalization
+            # Windows normalization
             win_a_norm: np.ndarray = (window_a - np.mean(window_a)) / max(np.std(window_a), ACCEPTED_ERROR)
             win_b_norm: np.ndarray = (window_b - np.mean(window_b)) / max(np.std(window_b), ACCEPTED_ERROR)
 
@@ -424,11 +479,106 @@ def get_complete_chromas_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
     first_index_b: int = overlap_indexes.ini
     first_index_a: int = chromas_relationship[first_index_b].index_i
     last_index: int = overlap_indexes.ini + overlap_indexes.length - 1
-    last_index_a: int = min(chromas_relationship[last_index].index_i + win_frames + 1, chroma_a.shape[1])
+
+    last_index_a: int = min(chromas_relationship[last_index].index_i, chroma_a.shape[1] - win_frames)
+    last_index_a = update_last_index_a_precision(chroma_a, chroma_b, win_frames, last_index_a, last_index)
 
     overlapping_length: int = last_index_a - first_index_a
 
     return [Interval(first_index_a, overlapping_length), Interval(first_index_b, overlapping_length)]
+
+
+def select_by_difference(list_1: list, list_2: list, is_last_index: bool) -> list:
+    if (list_1 == list_2):
+        return list_1
+
+    diff_first = abs(list_1[0] - list_2[0])
+    diff_second = abs(list_1[1] - list_2[1])
+
+    if diff_second > diff_first:
+        return list_1 if is_last_index else list_2
+    else:
+        return list_2 if is_last_index else list_1
+
+
+def get_best_row(data: list, is_last_index: bool) -> tuple[int, int]:
+    def round1(x): return round(x, 1)
+
+    rounded_third = max(round1(row[2]) for row in data)
+    max_rows = [row for row in data if round1(row[2]) == rounded_third]
+
+    if max_rows:
+        first_a_element = max(row[0] for row in max_rows) if is_last_index else min(row[0] for row in max_rows)
+        first_b_element = max(row[1] for row in max_rows) if is_last_index else min(row[1] for row in max_rows)
+
+        best_rows_a = [row for row in max_rows if row[0] == first_a_element]
+        best_rows_b = [row for row in max_rows if row[1] == first_b_element]
+        result = select_by_difference(best_rows_a[0], best_rows_b[0], is_last_index)
+
+        return result[0], result[1]
+
+    return -1, -1  # pragma: no cover
+
+
+def get_highest_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
+    win_frames: int, index_a: int, conf: FindOverlapArgs) -> tuple[int, float, float]:
+    chromas_relationship: dict[int, SimilarityEntry] = {}
+
+    for i in range(index_a, index_a + win_frames):
+        window_a: np.ndarray = chroma_a[:, i:min(i + win_frames, chroma_a.shape[1])]
+        if (window_a.shape[1] < MIN_SIGNAL_LEN):
+            break
+        win_a_norm: np.ndarray  = (window_a - np.mean(window_a)) / max(np.std(window_a), ACCEPTED_ERROR)
+
+        for j in range(0, chroma_b.shape[1] - win_frames):
+            window_b: np.ndarray = chroma_b[:, j:j + win_frames]
+            win_b_norm: np.ndarray = (window_b - np.mean(window_b)) / max(np.std(window_b), ACCEPTED_ERROR)
+
+            max_corr, similarity = compute_audio_score(win_a_norm, win_b_norm, conf)
+
+            if j not in chromas_relationship:
+                chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity)
+            elif (similarity > chromas_relationship[j].sim and max_corr > chromas_relationship[j].corr):
+                chromas_relationship[j] = SimilarityEntry(index_i=i, corr=max_corr, sim=similarity)
+
+    sorted_items: list = sorted(
+        chromas_relationship.items(),
+        key=lambda item: (item[1].corr, item[1].sim)
+    )
+    key, entry = sorted_items[-1:][0]
+
+    return key, entry.index_i, entry.corr, entry.sim
+
+
+def compute_partial_audio_indices(chroma_a: np.ndarray, chroma_b: np.ndarray,
+    win_frames: int, is_last_index: bool, conf: FindOverlapArgs) -> tuple[int, int]:
+    count = 1 if is_last_index else 0
+
+    indices_list = list()
+    while (chroma_a.shape[1] > count * win_frames):
+        last_index_a: int = (chroma_a.shape[1] - count * win_frames) if is_last_index else count * win_frames
+        index_b, index_a, corr, sim = get_highest_similarity(chroma_a, chroma_b, win_frames, last_index_a, conf)
+        indices_list.append([index_a, index_b, corr, sim])
+        count += 1
+
+    return get_best_row(indices_list, is_last_index)
+
+
+def compute_partial_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
+    win_frames: int, conf: FindOverlapArgs) -> tuple[Interval, Interval]:
+    first_index_a, first_index_b = compute_partial_audio_indices(chroma_a, chroma_b, win_frames, False, conf)
+
+    if (first_index_a > -1):
+        last_index_a, last_index_b = compute_partial_audio_indices(chroma_a, chroma_b, win_frames, True, conf)
+
+        if (last_index_a > -1):
+            last_index_a = update_last_index_a_precision(chroma_a, chroma_b, win_frames, last_index_a, last_index_b)
+
+            overlapping_length: int = last_index_a - first_index_a
+
+            return [Interval(first_index_a, overlapping_length), Interval(first_index_b, overlapping_length)]
+
+    return [Interval(), Interval()]  # pragma: no cover
 
 
 def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
@@ -441,11 +591,9 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     win_frames: int = int(WINDOW_NUM_SECS * np.ceil(conf.audio_desc.sample_rate/HOP_LENGTH))
 
     if not conf.deep_search:
-        most_similar_index: int = slide_last_chroma_a_window_over_chroma_b(chroma_a, chroma_b, win_frames, conf)
-        if (most_similar_index > -1):
-            return get_overlapping_audio_indexes_from_unique_scanning(chroma_a.shape[1], win_frames, most_similar_index)
+        return compute_partial_audio_algorithm(chroma_a, chroma_b, win_frames, conf)
 
-    return get_complete_chromas_similarity(chroma_a, chroma_b, win_frames, conf)
+    return compute_deep_audio_algorithm(chroma_a, chroma_b, win_frames, conf)
 
 
 def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> OverlapInterval:
