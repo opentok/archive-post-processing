@@ -31,7 +31,13 @@ FFPROBE_TO_AUDIO_DESC_MAPPING: dict[str, tuple[str, Callable[str, Any]]] = {
         }
 
 
-def validate_tools():
+def validate_tools() -> None:
+    """
+    Validate that required tools and codecs are available.
+
+    Raises:
+        StitcherException: If ffmpeg/ffprobe executables or required codecs are missing.
+    """
     # check we have the needed executables
     for executable in [FFMPEG, FFPROBE]:
         if not shutil.which(executable):
@@ -55,7 +61,16 @@ def validate_tools():
         raise_error('FFMPEG is missing aac encoder or decoder')
 
 
-def validate_conf(conf: Conf):
+def validate_conf(conf: Conf) -> None:
+    """
+    Validate the configuration for input/output files.
+
+    Args:
+        conf (Conf): Configuration object containing file paths and flags.
+
+    Raises:
+        StitcherException: If input or output files/directories are invalid.
+    """
     # check input files
     if not conf.archive_a.exists() or not conf.archive_a.is_file():
         raise_error(f'archive-a {conf.archive_a} is not a valid file')
@@ -73,7 +88,17 @@ def validate_conf(conf: Conf):
         raise_error(f'Output file {conf.output} is not an mp4 file, please use a .mp4 extension')
 
 
-def validate_media(media_desc_a: MediaDesc, media_desc_b: MediaDesc):
+def validate_media(media_desc_a: MediaDesc, media_desc_b: MediaDesc) -> None:
+    """
+    Validate media descriptions for compatibility and supported formats.
+
+    Args:
+        media_desc_a (MediaDesc): Media description for archive A.
+        media_desc_b (MediaDesc): Media description for archive B.
+
+    Raises:
+        StitcherException: If media tracks, formats, codecs, or b-frames are invalid or incompatible.
+    """
     # check there's at least an audio or video track
     if media_desc_a.audio is None and media_desc_a.video is None:
         raise_error(f'archives have no audio or video tracks')
@@ -96,6 +121,18 @@ def validate_media(media_desc_a: MediaDesc, media_desc_b: MediaDesc):
 
 
 def get_media_desc(filepath: Path) -> MediaDesc:
+    """
+    Extract media description (audio/video info) from a file using ffprobe.
+
+    Args:
+        filepath (Path): Path to the media file.
+
+    Returns:
+        MediaDesc: Media description object containing audio/video info and duration.
+
+    Raises:
+        StitcherException: If ffprobe output cannot be parsed.
+    """
     json_desc_str: str = run_exec(
         FFPROBE, '-print_format', 'json', '-show_streams', '-show_format', filepath)
 
