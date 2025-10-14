@@ -299,3 +299,11 @@ class OverlapTest(TestBase):
             y_b: np.ndarray = np.array([[4.9, 5.7, 6.0], [10.2, 29.3, 33.1]])
             plot_audio_samples(y_a, y_b, 1, 1, 5, 4, 8)
             mock_plt.assert_called_once()
+
+    def test_plot_chromas(self):
+        self.overlap_conf.debug_plot = True
+        with patch('matplotlib.pyplot.show') as mock_plt:
+            y_a: np.ndarray = np.array([[1.0, 2.2, 3.9, 4.4, 3.5], [4.9, 5.7, 6.0, 1.2, 3.4]])
+            y_b: np.ndarray = np.array([[4.9, 5.7, 6.0, 2.3, 4.5], [10.2, 29.3, 33.1, 5.1, 9.9]])
+            plot_chromas(y_a, y_b, 1, 1, timedelta(seconds=float(2)), 1, 3, 1, 3, True)
+            mock_plt.assert_called()

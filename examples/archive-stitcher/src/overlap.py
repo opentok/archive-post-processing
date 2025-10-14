@@ -41,7 +41,7 @@ class SimilarityEntry:
     sim: np.float32 = 0
 
 
-def plot_chromas(chroma_a: np.ndarray, chroma_b: np.ndarray, rate: int, win_frames: int, max_overlap: int,
+def plot_chromas(chroma_a: np.ndarray, chroma_b: np.ndarray, rate: int, win_frames: int, max_overlap: timedelta,
     start_index_a: int, end_index_a: int, start_index_b: int, end_index_b: int, span: bool):
     for i in range(0, chroma_a.shape[0]):
         _fig, (ax1, ax3) = plt.subplots(2, 1, sharex=True, figsize=(12, 6))
