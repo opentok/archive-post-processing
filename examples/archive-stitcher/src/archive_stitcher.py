@@ -53,7 +53,7 @@ def main(conf: Conf):
         conf (Conf): Configuration object with parameters and options.
 
     Returns:
-        None; performs archive stitching and merging according to configuration.
+        None: performs archive stitching and merging according to configuration.
     """
     printerr(f'Using conf: {conf}')
 

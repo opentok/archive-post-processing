@@ -97,7 +97,7 @@ def validate_media(media_desc_a: MediaDesc, media_desc_b: MediaDesc) -> None:
         media_desc_b (MediaDesc): Media description for archive B.
 
     Raises:
-        StitcherException: If media tracks, formats, codecs, or b-frames are invalid or incompatible.
+        StitcherException: If media tracks, formats, codecs, are invalid or incompatible.
     """
     # check there's at least an audio or video track
     if media_desc_a.audio is None and media_desc_a.video is None:
