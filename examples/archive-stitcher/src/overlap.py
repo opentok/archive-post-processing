@@ -49,25 +49,42 @@ HOP_LENGTH: Final[int] = 512
 WINDOW_NUM_SECS: Final[np.float32] = 1
 
 class MediaType(Enum):
+    """Media type enumeration."""
     UNDEFINED = 1
     AUDIO = 2
     VIDEO = 3
 
 @dataclass(eq=True)
 class SimilarityEntry:
-    '''
-    index_i: int = 0        # chroma column index
-    corr: np.float32 = 0    # Max. correlation of all the 12 chromas for a fixed chroma window
-    sim: np.float32 = 0     # Similarity factor between all the 12 correlation values
-    '''
+    """
+    Represents a similarity entry for audio chroma comparison.
+
+    Attributes:
+        index_i (int): Chroma column index.
+        corr (np.float32): Maximum correlation of all chromas for a fixed window.
+        sim (np.float32): Similarity factor between chroma correlation values.
+    """
     index_i: int = 0
     corr: np.float32 = 0
     sim: np.float32 = 0
 
 
 def plot_audio_samples(y_a: np.ndarray, y_b: np.ndarray, rate: int,
-    start_time_a: float, end_time_a: float, start_time_b: float, end_time_b: float):
+    start_time_a: float, end_time_a: float, start_time_b: float, end_time_b: float) -> None:
+    """
+    Plot two audio signals and their overlapping regions.
+
+    Args:
+        y_a (np.ndarray): Audio signal A.
+        y_b (np.ndarray): Audio signal B.
+        rate (int): Sample rate of the audio signals.
+        start_time_a (float): Start time of overlap in signal A.
+        end_time_a (float): End time of overlap in signal A.
+        start_time_b (float): Start time of overlap in signal B.
+        end_time_b (float): End time of overlap in signal B.
+    """
     _fig, (ax1, ax3) = plt.subplots(2, 1, sharex=True, figsize=(12, 6))
+
     librosa.display.waveshow(y_a, sr=rate, ax=ax1, marker='.', label='audio_a')
     ax1.set_xlabel('audio_a seconds')
     ax1.set_ylabel('amplitude')
@@ -97,7 +114,14 @@ def plot_audio_samples(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     plt.close()
 
 
-def plot_archives_relationship(values: list[int], overlap_ind: Interval):
+def plot_archives_relationship(values: list[int], overlap_ind: Interval) -> None:
+    """
+    Plot the relationship between two archives' similar frames.
+
+    Args:
+        values (list[int]): List of similar frame indices.
+        overlap_ind (Interval): Interval of overlapping frames.
+    """
     fig = plt.figure()
 
     num_archive_a_points = len(values)
@@ -131,7 +155,18 @@ def plot_archives_relationship(values: list[int], overlap_ind: Interval):
     plt.close()
 
 
-def process_frame(frame: np.ndarray, width: int, height: int, resize_prc=RESIZE_FACTOR):
+def process_frame(frame: np.ndarray, width: int, height: int, resize_prc=RESIZE_FACTOR) -> np.ndarray:
+    """
+    Convert frame to grayscale and resize if needed.
+
+    Args:
+        frame (np.ndarray): Video frame.
+        width (int): Frame width.
+        height (int): Frame height.
+        resize_prc (float): Resize factor.
+    Returns:
+        np.ndarray: Processed frame.
+    """
     gray_image = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
     if (width > 320) and (height > 240):
@@ -142,6 +177,16 @@ def process_frame(frame: np.ndarray, width: int, height: int, resize_prc=RESIZE_
 
 
 def compute_video_score(frame_a: np.ndarray, frame_b: np.ndarray, conf: FindOverlapArgs) -> float:
+    """
+    Compute similarity score between two video frames.
+
+    Args:
+        frame_a (np.ndarray): Frame from video A.
+        frame_b (np.ndarray): Frame from video B.
+        conf (FindOverlapArgs): Configuration for overlap finding.
+    Returns:
+        float: Similarity score.
+    """
     res_frame_a = process_frame(frame_a, conf.video_desc.width, conf.video_desc.height)
     res_frame_b = process_frame(frame_b, conf.video_desc.width, conf.video_desc.height)
 
@@ -165,6 +210,15 @@ def compute_video_score(frame_a: np.ndarray, frame_b: np.ndarray, conf: FindOver
 
 
 def open_video(archive_path: Path, frame_ini: int) -> cv2.VideoCapture:
+    """
+    Open a video file and set its initial frame.
+
+    Args:
+        archive_path (Path): Path to video file.
+        frame_ini (int): Initial frame to set.
+    Returns:
+        cv2.VideoCapture: Opened video capture object.
+    """
     video = cv2.VideoCapture(str(archive_path))
     video.set(cv2.CAP_PROP_POS_FRAMES, frame_ini)
 
@@ -174,23 +228,31 @@ def open_video(archive_path: Path, frame_ini: int) -> cv2.VideoCapture:
     return video
 
 
-def release_video(video: cv2.VideoCapture):
+def release_video(video: cv2.VideoCapture) -> None:
+    """
+    Release a video capture object.
+
+    Args:
+        video (cv2.VideoCapture): Video capture object.
+    """
     if video.isOpened():
         video.release()
 
 
 def snr_db(signal_1: np.ndarray, signal_2: np.ndarray) -> float:
-    '''
+    """
     Compute the Signal-to-Noise Ratio (SNR) in decibels.
 
-    Parameters:
-        signal_1: The original signal_1
-        signal_2: The original signal_2
-            The noise is computed as: signal_1 - signal_2
+    Args:
+        signal_1 (np.ndarray): Original signal.
+        signal_2 (np.ndarray): Compared signal.
+
+    Details:
+        the noise is computed as: signal_1 - signal_2.
 
     Returns:
         float: SNR value in decibels (dB).
-    '''
+    """
     len_signal_1 = signal_1.shape[1]
     len_signal_2 = signal_2.shape[1]
 
@@ -206,7 +268,17 @@ def snr_db(signal_1: np.ndarray, signal_2: np.ndarray) -> float:
 
 
 def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOverlapArgs) -> tuple[float, float]:
-    # Both windows have 12 rows with equal or approximately win_frames columns, i.e, (12 rows, win_frames columns)
+    """
+    Compute correlation and similarity score between two audio windows.
+
+    Args:
+        window_a (np.ndarray): Audio window from signal A.
+        window_b (np.ndarray): Audio window from signal B.
+        conf (FindOverlapArgs): Configuration for overlap finding.
+
+    Returns:
+        tuple[float, float]: Max correlation, similarity score.
+    """
     match conf.algo_audio:
         case conf.algo_audio.PEARSON:
             if (window_a.shape[1] == 0 or window_b.shape[1] == 0):
@@ -238,6 +310,21 @@ def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOv
 
 
 def get_matching_frames(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> pd.DataFrame:
+    """
+    Get a DataFrame mapping frames in archive A to most similar frames in archive B.
+
+    Args:
+        archive_a (Path): Path to archive A.
+        archive_b (Path): Path to archive B.
+        conf (FindOverlapArgs): Configuration for overlap finding.
+
+    Details:
+        the most similar frame is chosen according to the frames combination that
+        provides the lowest video score.
+
+    Returns:
+        pd.DataFrame: DataFrame with columns ['frame_a', 'similar_frame_b'].
+    """
     rate: float = conf.video_desc.fps.to_float()
 
     frame_offset_a: int = int(max(timedelta(), conf.duration_a - conf.max_overlap).total_seconds() * rate)
@@ -280,15 +367,35 @@ def get_matching_frames(archive_a: Path, archive_b: Path, conf: FindOverlapArgs)
 
 
 def trim_init_duplicates_in_segment(values: list[int], interval: Interval) -> Interval:
-    # It returns end_ind - 1 if all the elements are the same
+    """
+    Removes initial duplicate values in a segment.
+
+    Args:
+        values (list[int]): Input list of values.
+        interval (Interval): Interval to process.
+
+    Returns:
+        Interval: New interval after trimming initial duplicates.
+    """
     ini_ind: int = interval.ini
     end_ind: int = interval.ini + interval.length
+
+    #It returns end_ind - 1 if all the elements are the same
     new_ini: int = next((i - 1 for i in range(ini_ind + 1, end_ind) if values[i] != values[i - 1]), end_ind - 1)
     return Interval(new_ini, end_ind - new_ini)
 
 
 def trim_end_duplicates_in_segment(values: list[int], interval: Interval) -> Interval:
-    # For example, to remove final black frames
+    """
+    Removes final duplicate values in a segment (e.g., trailing black frames).
+
+    Args:
+        values (list[int]): List of values.
+        interval (Interval): Interval to process.
+
+    Returns:
+        Interval: New interval after trimming end duplicates.
+    """
     ini_ind: int = interval.ini
     end_ind: int = interval.ini + interval.length
     values = values[ini_ind:end_ind][::-1]
@@ -297,6 +404,15 @@ def trim_end_duplicates_in_segment(values: list[int], interval: Interval) -> Int
 
 
 def is_data_increasing_in_45_degrees_trend(values: list[int]) -> bool:
+    """
+    Checks if data increases in a near 45-degree trend.
+
+    Args:
+        values (list[int]): Input values.
+
+    Returns:
+        bool: True if trend is increasing with 90% of tolerance, else False.
+    """
     if len(values) < MIN_SIGNAL_LEN:
         return False  # Too short
 
@@ -307,6 +423,16 @@ def is_data_increasing_in_45_degrees_trend(values: list[int]) -> bool:
 
 
 def get_increasing_data_intervals(values: list[int], interval_list: list[Interval]) -> list[Interval]:
+    """
+    Filters intervals where data increases in a 45-degree trend.
+
+    Args:
+        values (list[int]): Input values.
+        interval_list (list[Interval]): List of intervals.
+
+    Returns:
+        list[Interval]: List of filtered intervals.
+    """
     increasing_intervals_list = list()
 
     for i in range(0, len(interval_list)):
@@ -322,6 +448,18 @@ def get_increasing_data_intervals(values: list[int], interval_list: list[Interva
 
 
 def remove_glitches(values: int, all_interval_list: list[Interval], media_type: MediaType) -> Interval:
+    """
+    Removes glitches from interval list, returns longest increasing segment. To accomplish that, 
+    the function joins the consecutive increasing intervals that are close in value.
+
+    Args:
+        values (int): List of values.
+        all_interval_list (list[Interval]): All intervals.
+        media_type (MediaType): Media type.
+
+    Returns:
+        Interval: Cleaned interval, i.e., the longest resulting interval.
+    """
     if (media_type.name == 'UNDEFINED'):
         return Interval()
 
@@ -347,6 +485,7 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
         end_index_prev = interval_list[i].ini + interval_list[i].length
         ini_index_current = interval_list[i+1].ini
 
+        # Highest allowed difference in value for consecutive interval sequences
         threshold = int(max(interval_list[i].length, interval_list[i+1].length) * THRESHOLD_OUTLIERS_PERCENTAJE)
 
         is_value_diff_low: bool = abs(values[end_index_prev - 1] - values[ini_index_current]) < threshold
@@ -356,6 +495,7 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
             count += 1
         else:
             filtered_intervals.append([final_ini_index, final_end_index])
+            # Assignation for the next loop iteration
             final_ini_index = interval_list[i+1].ini
             final_end_index = interval_list[i+1].length
             count = 0
@@ -370,6 +510,18 @@ def remove_glitches(values: int, all_interval_list: list[Interval], media_type: 
 
 def add_unique_element_to_list(max_init_index: int, max_length: int, segments_in_set: set[int, int],
     segments_in_list: list[Interval]) -> list[Interval]:
+    """
+    Adds a unique interval to a list (avoiding duplicates).
+
+    Args:
+        max_init_index (int): Initial index.
+        max_length (int): Length of interval.
+        segments_in_set (set): Set to track uniqueness.
+        segments_in_list (list[Interval]): List of intervals.
+
+    Returns:
+        list[Interval]: Updated list of intervals.
+    """
     key = (max_init_index, max_length)
 
     if key not in segments_in_set:
@@ -381,6 +533,16 @@ def add_unique_element_to_list(max_init_index: int, max_length: int, segments_in
 
 
 def find_longest_non_decreasing_segment(values: list[int], media_type: MediaType) -> Interval:
+    """
+    Finds the longest non-decreasing segment in a sequence.
+
+    Args:
+        values (list[int]): Input values.
+        media_type (MediaType): Media type.
+
+    Returns:
+        Interval: Longest non-decreasing interval after removing glitches.
+    """
     prev: Optional[int] = None
 
     max_init_index: int = 0
@@ -413,15 +575,27 @@ def find_longest_non_decreasing_segment(values: list[int], media_type: MediaType
 
 
 def get_overlapping_indexes(values: list[int], media_type: MediaType) -> Interval:
+    """
+    Finds the interval of overlapping indexes.
+
+    Args:
+        values (list[int]): List of values.
+        media_type (MediaType): Media type.
+
+    Returns:
+        Interval: Overlap interval.
+    """
     interval_pre_trimming: Interval = find_longest_non_decreasing_segment(values, media_type)
     if (interval_pre_trimming.is_empty()):
         return Interval()  # pragma: no cover
 
-    # Remove not monotically increasing values at the beginning and at the end of the overlapping period
+    # Remove the not monotically increasing values at the beginning and at the end of the overlapping period
     interval_ini_trimmed: Interval = trim_init_duplicates_in_segment(values, interval_pre_trimming)
     interval_trimmed: Interval = trim_end_duplicates_in_segment(values, interval_ini_trimmed)
 
     reduced_values = values[interval_trimmed.ini:interval_trimmed.ini + interval_trimmed.length]
+    # To remove the last overlapping sample if it corresponds to the beginning of a sequence of 
+    # silence or black frames
     jump_in_frames: int = reduced_values[len(reduced_values) - 1] - reduced_values[len(reduced_values) - 2]
     length: int = interval_trimmed.length if jump_in_frames < 3 else interval_trimmed.length - 1
 
@@ -430,6 +604,19 @@ def get_overlapping_indexes(values: list[int], media_type: MediaType) -> Interva
 
 def update_last_index_a_precision(chroma_a: np.ndarray, chroma_b: np.ndarray,
     win_frames: int, index_a: int, index_b: int) -> int:
+    """
+    Refines the last index of the overlap in chroma A for better precision.
+
+    Args:
+        chroma_a (np.ndarray): Chroma A matrix.
+        chroma_b (np.ndarray): Chroma B matrix.
+        win_frames (int): Window size in frames.
+        index_a (int): Index in chroma A.
+        index_b (int): Index in chroma B.
+
+    Returns:
+        int: Updated index in chroma A.
+    """
     # 100ms of window
     small_win = max(int((win_frames*0.1)/WINDOW_NUM_SECS), 2)
 
@@ -448,11 +635,24 @@ def update_last_index_a_precision(chroma_a: np.ndarray, chroma_b: np.ndarray,
 
     neg_indices = [i for i, v in enumerate(snr) if v < 0]
     last_index_a: int = (index_a + neg_indices[0]) if neg_indices else (index_a + win_frames)
+
     return min(last_index_a, chroma_a.shape[1])
 
 
 def compute_deep_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
     win_frames: int, conf: FindOverlapArgs) -> tuple[Interval, Interval]:
+    """
+    Finds deep overlap intervals in audio using full search.
+
+    Args:
+        chroma_a (np.ndarray): Chroma matrix for A.
+        chroma_b (np.ndarray): Chroma matrix for B.
+        win_frames (int): Window size in frames.
+        conf (FindOverlapArgs): Overlap config.
+
+    Returns:
+        tuple[Interval, Interval]: Overlap intervals for A and B.
+    """
     chromas_relationship: dict[int, SimilarityEntry] = {}
     for i in range(0, chroma_a.shape[1] - win_frames):
         window_a: np.ndarray = chroma_a[:, i:i + win_frames]
@@ -489,6 +689,17 @@ def compute_deep_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
 
 
 def select_by_difference(list_1: list, list_2: list, is_last_index: bool) -> list:
+    """
+    Selects the best row by difference for overlap.
+
+    Args:
+        list_1 (list): First row.
+        list_2 (list): Second row.
+        is_last_index (bool): Whether selecting last index.
+
+    Returns:
+        list: Selected row.
+    """
     if (list_1 == list_2):
         return list_1
 
@@ -502,6 +713,16 @@ def select_by_difference(list_1: list, list_2: list, is_last_index: bool) -> lis
 
 
 def get_best_row(data: list, is_last_index: bool) -> tuple[int, int]:
+    """
+    Gets the best row from data for overlap indices.
+
+    Args:
+        data (list): Input data.
+        is_last_index (bool): Whether selecting last index.
+
+    Returns:
+        tuple[int, int]: Best A and B index.
+    """
     def round1(x): return round(x, 1)
 
     rounded_third = max(round1(row[2]) for row in data)
@@ -522,12 +743,26 @@ def get_best_row(data: list, is_last_index: bool) -> tuple[int, int]:
 
 def get_highest_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
     win_frames: int, index_a: int, conf: FindOverlapArgs) -> tuple[int, float, float]:
+    """
+    Finds the highest similarity between chroma A and B.
+
+    Args:
+        chroma_a (np.ndarray): Chroma A matrix.
+        chroma_b (np.ndarray): Chroma B matrix.
+        win_frames (int): Window size in frames.
+        index_a (int): Index in chroma A.
+        conf (FindOverlapArgs): Overlap config.
+
+    Returns:
+        tuple[int, float, float]: Index in B, index in A, correlation, similarity.
+    """
     chromas_relationship: dict[int, SimilarityEntry] = {}
 
     for i in range(index_a, index_a + win_frames):
         window_a: np.ndarray = chroma_a[:, i:min(i + win_frames, chroma_a.shape[1])]
         if (window_a.shape[1] < MIN_SIGNAL_LEN):
             break
+
         win_a_norm: np.ndarray  = (window_a - np.mean(window_a)) / max(np.std(window_a), ACCEPTED_ERROR)
 
         for j in range(0, chroma_b.shape[1] - win_frames):
@@ -552,6 +787,19 @@ def get_highest_similarity(chroma_a: np.ndarray, chroma_b: np.ndarray,
 
 def compute_partial_audio_indices(chroma_a: np.ndarray, chroma_b: np.ndarray,
     win_frames: int, is_last_index: bool, conf: FindOverlapArgs) -> tuple[int, int]:
+    """
+    Computes partial indices for audio overlap.
+
+    Args:
+        chroma_a (np.ndarray): Chroma matrix for A.
+        chroma_b (np.ndarray): Chroma matrix for B.
+        win_frames (int): Window size.
+        is_last_index (bool): Whether computing last index.
+        conf (FindOverlapArgs): Overlap config.
+
+    Returns:
+        tuple[int, int]: Indices for A and B.
+    """
     count = 1 if is_last_index else 0
 
     indices_list = list()
@@ -566,6 +814,18 @@ def compute_partial_audio_indices(chroma_a: np.ndarray, chroma_b: np.ndarray,
 
 def compute_partial_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
     win_frames: int, conf: FindOverlapArgs) -> tuple[Interval, Interval]:
+    """
+    Computes overlap intervals for partial audio search.
+
+    Args:
+        chroma_a (np.ndarray): Chroma matrix for A.
+        chroma_b (np.ndarray): Chroma matrix for B.
+        win_frames (int): Window size.
+        conf (FindOverlapArgs): Overlap config.
+
+    Returns:
+        tuple[Interval, Interval]: Overlap intervals for A and B.
+    """
     first_index_a, first_index_b = compute_partial_audio_indices(chroma_a, chroma_b, win_frames, False, conf)
 
     if (first_index_a > -1):
@@ -583,6 +843,18 @@ def compute_partial_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
 
 def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     conf: FindOverlapArgs) -> tuple[Interval, Interval]:
+    """
+    Computes overlap intervals using Constant-Q Transform (CQT) chroma features.
+
+    Args:
+        y_a (np.ndarray): Audio signal A.
+        y_b (np.ndarray): Audio signal B.
+        rate (int): Sample rate.
+        conf (FindOverlapArgs): Overlap config.
+
+    Returns:
+        tuple[Interval, Interval]: Overlap intervals for A and B.
+    """
     # Compute 12 chroma features (pitch classes) from Constant-Q Transform
     chroma_a: np.ndarray = librosa.feature.chroma_cqt(y=y_a, sr=rate, hop_length=HOP_LENGTH)
     chroma_b: np.ndarray = librosa.feature.chroma_cqt(y=y_b, sr=rate, hop_length=HOP_LENGTH)
@@ -590,13 +862,26 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     # The win_frames sliding window approximately covers WINDOW_NUM_SECS amount of time in the time domain
     win_frames: int = int(WINDOW_NUM_SECS * np.ceil(conf.audio_desc.sample_rate/HOP_LENGTH))
 
+    # Deep-search audio algorithm
     if not conf.deep_search:
         return compute_partial_audio_algorithm(chroma_a, chroma_b, win_frames, conf)
 
+    # Partial-search audio algorithm
     return compute_deep_audio_algorithm(chroma_a, chroma_b, win_frames, conf)
 
 
 def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> OverlapInterval:
+    """
+    Finds the overlap interval for audio tracks in two archives.
+
+    Args:
+        archive_a (Path): Path to archive A.
+        archive_b (Path): Path to archive B.
+        conf (FindOverlapArgs): Overlap config.
+
+    Returns:
+        OverlapInterval: Overlap interval for audio.
+    """
     rate: float = conf.audio_desc.sample_rate
 
     offset_a: timedelta = max(timedelta(), conf.duration_a - conf.max_overlap)
@@ -611,14 +896,14 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
 
     assert(sr_a == sr_b and sr_a == rate)
 
-    overlap_indeces_a, overlap_indeces_b = compute_overlapping_cqt(y_a, y_b, rate, conf)
-    if (overlap_indeces_a.end == 0 or overlap_indeces_b.end == 0):
+    overlap_indices_a, overlap_indices_b = compute_overlapping_cqt(y_a, y_b, rate, conf)
+    if (overlap_indices_a.end == 0 or overlap_indices_b.end == 0):
         return OverlapInterval()  # pragma: no cover
 
-    start_time_a = librosa.frames_to_time(overlap_indeces_a.ini, sr=rate, hop_length=HOP_LENGTH)
-    start_time_b = librosa.frames_to_time(overlap_indeces_b.ini, sr=rate, hop_length=HOP_LENGTH)
-    end_time_a = librosa.frames_to_time(overlap_indeces_a.end, sr=rate, hop_length=HOP_LENGTH)
-    end_time_b = librosa.frames_to_time(overlap_indeces_b.end, sr=rate, hop_length=HOP_LENGTH)
+    start_time_a = librosa.frames_to_time(overlap_indices_a.ini, sr=rate, hop_length=HOP_LENGTH)
+    start_time_b = librosa.frames_to_time(overlap_indices_b.ini, sr=rate, hop_length=HOP_LENGTH)
+    end_time_a = librosa.frames_to_time(overlap_indices_a.end, sr=rate, hop_length=HOP_LENGTH)
+    end_time_b = librosa.frames_to_time(overlap_indices_b.end, sr=rate, hop_length=HOP_LENGTH)
 
     if conf.debug_plot or conf.deep_debug_plot:
         print(f"Best alignment for audio_a starts at sec: {(start_time_a + offset_a.total_seconds()):.2f}s")
@@ -636,6 +921,17 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
 
 
 def find_overlap_video(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> OverlapInterval:
+    """
+    Finds the overlap interval for video tracks in two archives.
+
+    Args:
+        archive_a (Path): Path to archive A.
+        archive_b (Path): Path to archive B.
+        conf (FindOverlapArgs): Overlap config.
+
+    Returns:
+        OverlapInterval: Overlap interval for video.
+    """
     rate: float = conf.video_desc.fps.to_float()
 
     overlap_data_df: pd.DataFrame = get_matching_frames(archive_a, archive_b, conf)
@@ -669,6 +965,16 @@ def find_overlap_video(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
 
 
 def combine_audio_with_video_overlap(audio_overlap: OverlapInterval, video_overlap: OverlapInterval) -> MediaOverlap:
+    """
+    Combines audio and video overlap intervals into a MediaOverlap object.
+
+    Args:
+        audio_overlap (OverlapInterval): Audio overlap interval.
+        video_overlap (OverlapInterval): Video overlap interval.
+
+    Returns:
+        MediaOverlap: Combined overlap object.
+    """
     if audio_overlap.is_empty() and not video_overlap.is_empty():
         return MediaOverlap(audio=OverlapInterval(), video=video_overlap)
 
@@ -692,6 +998,17 @@ def combine_audio_with_video_overlap(audio_overlap: OverlapInterval, video_overl
 
 
 def find_overlap(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) -> MediaOverlap:
+    """
+    Finds overlap between two media files (audio/video).
+
+    Args:
+        archive_a (Path): Path to archive A.
+        archive_b (Path): Path to archive B.
+        conf (FindOverlapArgs): Overlap config.
+
+    Returns:
+        MediaOverlap: Overlap intervals for audio and video.
+    """
     assert(conf.video_desc or conf.audio_desc)
 
     audio_overlap = OverlapInterval()

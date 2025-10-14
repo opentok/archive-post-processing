@@ -12,19 +12,51 @@ FFPROBE: str = 'ffprobe'
 
 
 class StitcherException(Exception):
+    """
+    Custom exception for Archive Stitcher errors.
+    """
     pass
 
 
-def printerr(*args, **kwargs):
+def printerr(*args, **kwargs) -> None:
+    """
+    Print messages to stderr.
+
+    Args:
+        *args: Arguments to print.
+        **kwargs: Keyword arguments to print.
+    """
     print(*args, **kwargs, file=sys.stderr)
 
 
-def raise_error(msg: str):
+def raise_error(msg: str) -> None:
+    """
+    Print error message and raise a StitcherException.
+
+    Args:
+        msg (str): Error message.
+
+    Raises:
+        StitcherException: Always raised with the provided message.
+    """
     printerr(msg)
     raise StitcherException(msg)
 
 
 def run_exec(*args, get_stderr=False) -> str:
+    """
+    Run a subprocess command and return its output.
+
+    Args:
+        *args: Command arguments.
+        get_stderr (bool): If True, return stderr instead of stdout.
+
+    Returns:
+        str: Command output (stdout or stderr).
+
+    Raises:
+        StitcherException: If the command fails.
+    """
     try:
         printerr('running command: ', *args)
 
@@ -40,5 +72,15 @@ def run_exec(*args, get_stderr=False) -> str:
 
 
 def create_tempfile(suffix: str, dir: Path) -> Path:
+    """
+    Create a temporary file and return its path.
+
+    Args:
+        suffix (str): Suffix to use for the file.
+        dir (Path): Directory in which to create the file.
+
+    Returns:
+        Path: Path to the created temporary file.
+    """
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix, dir=dir) as tmp:
         return Path(tmp.name)
