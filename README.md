@@ -3,29 +3,32 @@
 **This tool merges pairs of consecutive composed archives created by the OpenTok auto-archiving capability. These
 archives contain some media overlapping between the ending part of the first and the starting part of the second archive.**
 
-After creating a serie of composed archives with the Vonage auto-archiving feature [Vonage-automatic], this tool can be used to merge them smoothy as possible, giving rise to longer archives that cover the whole session call. You can also use this tool with video recordings that are not created  as Vonage Video archives, as long as some media overlapping is present and the media configuration of all of the input archives satisfy the next criteria:
+After creating a serie of composed archives with the Vonage auto-archiving feature [Vonage-automatic], this tool can be used to merge them smoothy as possible, giving rise to longer archives that cover the whole session call. You can also use this tool with video recordings that are not created  as Vonage Video archives, as long as some media overlapping is present and the media configuration of all of the input archives satisfy the following criteria:
 
-- **Composed Archive Video Params**
-  - codec: H264
-  - profile: Constrained Baseline
-  - pixel format: YUV 420p
-  - level: 4.1
-  - FPS: 25
-  - PTS timescale: 90000
-- **Composed Archive Audio Params**
-  - codec: AAC LC
-  - sample rate: 48Khz
-  - channels: 1
+- **Composed Archive Audio/Video Params**
+  - **Video**
+    - codec: H264
+    - profile: Constrained Baseline
+    - pixel format: YUV 420p
+    - level: 4.1
+    - FPS: 25
+    - PTS timescale: 90000
+  - **Audio**
+    - codec: AAC LC
+    - sample rate: 48Khz
+    - channels: 1
+- **Container**
+  - type: mp4
 
-This readme file presents a brief explanation of how this piece of code determines the overlapping period between consecutive archives and how it produces the merge between two archives.
+This readme file presents a brief explanation of how this piece of code determines the overlapping period between consecutive archives and how it merges the two archives.
 
 ## Overview
 
-To minimize the encoding loss, the merging module extracts if any video key frame is present within the estimated overlapping period. If one or more key frame exists, the code uses a key frame to mark the point when both archives must be joined together. This process also allows the tool to stitch the media together with the least amount of transcoding possible. This maintains quality and reduces the computing cost of the process.
+To minimize the encoding loss, the merging module searches for a video key frame within the estimated overlap. If one or more key frames exist, the code uses one of them to trim the end of the first archive and the start of the second archive before joining them. This process also allows the tool to stitch the media together with the least amount of transcoding possible. This maintains quality and reduces the computing cost of the process.
 
 To discover the overlapping area, this tool only needs to analyze a small portion of both files, some seconds before the ending of the first archive and the beginning of the second.
 
-Note please that to run the code, the __ffmpeg__ and __ffprobe__ softwares need to be installed in the user’s path.
+Note please that to run the code, the __ffmpeg__ and __ffprobe__ software need to be installed in the user’s path.
 
 ## Content type
 
@@ -76,12 +79,11 @@ For analysing the video frames overlapping, four different metrics have been imp
 
 - **MSE**:
     * **Mean Squared Error** is applied to quantify the average of the squares of the errors or, in our case, the differences between two frames. This algorithm does not account for perceptual similarities. However, it is sensitive to large outliers and only considers the number of gradients that are not flattened. As we are not interested in the structural differences, MSE results in delivering a very satisfactory performance. To show an example of how graphically Archive-Stitcher renders the results, we facilitate here a graphical outcome:
+                    <img src="images/mse.png" alt="Video_Frames_Relationship" width="500"/>
 
-    ![Video_Frames_Relationship](images/mse.png)
+      where the green area depicts the frames highest similarity relationship of the first and second archives where the overlapping takes place, being the frame 1 of the second archive the most similar to the frame 50 of the first archive, frame 2 with frame 51, and so on, respectively. The 45 degrees line clearly reflects that their most similar frames are consecutively ordered, respectively.
 
-    where the green area depicts the frames highest similarity relationship of the first and second archives where the overlapping takes place, being the frame 1 of the second archive the most similar to the frame 50 of the first archive, frame 2 with frame 51, and so on, respectively. The 45 degrees line clearly reflects that their most similar frames are consecutively ordered, respectively.
-
-    It is obvious that this correlation is later converted to timing data to obtain the overlapping period for video.
+      It is obvious that this correlation is later converted to timing data to obtain the overlapping period for video.
 
 - **UNILBP**: 
     * **Local Binary Pattern (LBP) - uniform** is a simple but powerful texture descriptor widely used in image processing. It is specially used to detect texture information as it compares each pixel with its neighborhood to provide a binary pattern that will be considered as a LBP code for the pixel [Ojala et al., 1994]. When employing the **uniform method**, only two transitions are taken into account: from 0 to 1 and from 1 to 0, e.g., 00000000, 11111111, 00011100. It is used to reduce dimensionality. From our use-case, we sum the filtered patterns and filter the final value. To implement this solution our tool relies on the scikit-image image processing library in python [Van der Walt et al., 2014].
@@ -100,7 +102,7 @@ In the case of having archives with both audio and video, our tool finds separat
 
 ## Other useful material
 
-Our developer documentation [Vonage-post-processing] contains easy to understand explanations and ready to use code. Please refer to (https://github.com/opentok/archive-post-processing/blob/main/examples/archive-stitcher/README.md) for an extend documetation about how to run the tool.
+Our developer documentation [Vonage-post-processing] contains easy to understand explanations and ready to use code. Please refer to https://github.com/opentok/archive-post-processing/blob/main/examples/archive-stitcher/README.md for an extend documetation about how to run the tool.
 
 ---
 
