@@ -896,14 +896,14 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
 
     assert(sr_a == sr_b and sr_a == rate)
 
-    overlap_indeces_a, overlap_indeces_b = compute_overlapping_cqt(y_a, y_b, rate, conf)
-    if (overlap_indeces_a.end == 0 or overlap_indeces_b.end == 0):
+    overlap_indices_a, overlap_indices_b = compute_overlapping_cqt(y_a, y_b, rate, conf)
+    if (overlap_indices_a.end == 0 or overlap_indices_b.end == 0):
         return OverlapInterval()  # pragma: no cover
 
-    start_time_a = librosa.frames_to_time(overlap_indeces_a.ini, sr=rate, hop_length=HOP_LENGTH)
-    start_time_b = librosa.frames_to_time(overlap_indeces_b.ini, sr=rate, hop_length=HOP_LENGTH)
-    end_time_a = librosa.frames_to_time(overlap_indeces_a.end, sr=rate, hop_length=HOP_LENGTH)
-    end_time_b = librosa.frames_to_time(overlap_indeces_b.end, sr=rate, hop_length=HOP_LENGTH)
+    start_time_a = librosa.frames_to_time(overlap_indices_a.ini, sr=rate, hop_length=HOP_LENGTH)
+    start_time_b = librosa.frames_to_time(overlap_indices_b.ini, sr=rate, hop_length=HOP_LENGTH)
+    end_time_a = librosa.frames_to_time(overlap_indices_a.end, sr=rate, hop_length=HOP_LENGTH)
+    end_time_b = librosa.frames_to_time(overlap_indices_b.end, sr=rate, hop_length=HOP_LENGTH)
 
     if conf.debug_plot or conf.deep_debug_plot:
         print(f"Best alignment for audio_a starts at sec: {(start_time_a + offset_a.total_seconds()):.2f}s")
