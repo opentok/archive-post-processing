@@ -16,7 +16,19 @@ from .utils import create_tempfile, FFMPEG, FFPROBE, printerr, raise_error, run_
 MAX_KEYFRAME_INTERVAL = timedelta(seconds=20)
 
 
-def merge_files(archive_a: Path, archive_b: Path, output: Path, conf: MergeArgs):
+def merge_files(archive_a: Path, archive_b: Path, output: Path, conf: MergeArgs) -> None:
+    """
+    Merge two media files (audio and/or video) with overlap consideration.
+
+    Args:
+        archive_a (Path): Path to first archive file.
+        archive_b (Path): Path to second archive file.
+        output (Path): Path where output should be saved.
+        conf (MergeArgs): Merge configuration and overlap details.
+
+    Returns:
+        None; writes merged output to the specified path.
+    """
     # precondition, we need either video or audio, this has to have been validated already in an outer layer
     assert(conf.video_desc or conf.audio_desc)
 
@@ -46,11 +58,21 @@ def merge_files(archive_a: Path, archive_b: Path, output: Path, conf: MergeArgs)
 
 
 class MediaType(StrEnum):
+    """Enumeration for media types."""
     VIDEO = auto()
     AUDIO = auto()
 
 
-def concatenate_media_files(files: list[Path], output: Path, media_type: MediaType, tmpdir: Path):
+def concatenate_media_files(files: list[Path], output: Path, media_type: MediaType, tmpdir: Path) -> None:
+    """
+    Concatenate media files into a single output file.
+
+    Args:
+        files (list[Path]): List of file paths to concatenate.
+        output (Path): Path to output file.
+        media_type (MediaType): Type of media (VIDEO or AUDIO).
+        tmpdir (Path): Temporary directory for intermediate files.
+    """
     parts_filename: Path = tmpdir / 'parts_list.txt'
     parts_filename.write_text('\n'.join(map(lambda f: f"file '{f}'", files)))
 
@@ -61,6 +83,19 @@ def concatenate_media_files(files: list[Path], output: Path, media_type: MediaTy
 
 def merge_video(archive_a: Path, archive_b: Path, overlap: OverlapInterval, video_desc: VideoDesc,
                 tmpdir: Path) -> Path:
+    """
+    Merge two video files based on overlap interval.
+
+    Args:
+        archive_a (Path): First video file.
+        archive_b (Path): Second video file.
+        overlap (OverlapInterval): Overlap details.
+        video_desc (VideoDesc): Video descriptor (profile, level, fps, etc).
+        tmpdir (Path): Temporary directory.
+
+    Returns:
+        Path: Path to merged video file.
+    """
     output_ini: Path = create_tempfile(suffix='_vini.mp4', dir=tmpdir)
     output_mid: Path = create_tempfile(suffix='_vmid.mp4', dir=tmpdir)
     output_end: Path = create_tempfile(suffix='_vend.mp4', dir=tmpdir)
@@ -112,6 +147,19 @@ def merge_video(archive_a: Path, archive_b: Path, overlap: OverlapInterval, vide
 
 def merge_audio(archive_a: Path, archive_b: Path, audio_desc: AudioDesc, overlap: OverlapInterval,
                 tmpdir: Path) -> Path:
+    """
+    Merge two audio files based on overlap interval.
+
+    Args:
+        archive_a (Path): First audio file.
+        archive_b (Path): Second audio file.
+        audio_desc (AudioDesc): Audio descriptor.
+        overlap (OverlapInterval): Overlap details.
+        tmpdir (Path): Temporary directory.
+
+    Returns:
+        Path: Path to merged audio file.
+    """
     output_ini: Path = create_tempfile(suffix='_ini.m4a', dir=tmpdir)
     output_end: Path = create_tempfile(suffix='_end.m4a', dir=tmpdir)
 
@@ -135,7 +183,15 @@ def merge_audio(archive_a: Path, archive_b: Path, audio_desc: AudioDesc, overlap
     return output
 
 
-def join_audio_and_video_outputs(video: Path,  audio: Path, output: Path):
+def join_audio_and_video_outputs(video: Path,  audio: Path, output: Path) -> None:
+    """
+    Join audio and video outputs into a final merged media file.
+
+    Args:
+        video (Path): Path to video file.
+        audio (Path): Path to audio file.
+        output (Path): Output file path.
+    """
     run_exec(FFMPEG,
              '-i', video, '-i', audio, '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'copy', '-y', output)
 
@@ -144,6 +200,17 @@ AAC_PRIMING_INFO_RE = re.compile(r'^\s*Stream .*Audio: aac \(LC\).*, delay (\d+)
 
 
 def get_audio_aac_priming_delay(filepath: Path, audio_desc: AudioDesc, tmpdir: Path) -> timedelta:
+    """
+    Get AAC priming delay from an audio file.
+
+    Args:
+        filepath (Path): Path to audio file.
+        audio_desc (AudioDesc): Audio descriptor.
+        tmpdir (Path): Temporary directory.
+
+    Returns:
+        timedelta: Priming delay as timedelta.
+    """
     result = timedelta()
 
     output: Path = create_tempfile(suffix='_audiodec.m4a', dir=tmpdir)
@@ -161,8 +228,19 @@ def get_audio_aac_priming_delay(filepath: Path, audio_desc: AudioDesc, tmpdir: P
     return result
 
 
-def get_next_best_keyframe_ts_in_interval(filepath: Path, interval_start: timedelta, duration: timedelta
-                                          ) -> timedelta:
+def get_next_best_keyframe_ts_in_interval(filepath: Path, interval_start: timedelta,
+    duration: timedelta) -> timedelta:
+    """
+    Find the timestamp of the next best keyframe in a video file within a given interval.
+
+    Args:
+        filepath (Path): Path to video file.
+        interval_start (timedelta): Start of interval.
+        duration (timedelta): Duration of interval.
+
+    Returns:
+        timedelta: Time of next keyframe found.
+    """
     frames_csv: str = run_exec(
             FFPROBE, '-select_streams', 'v', '-show_frames', '-show_entries', 'frame=pict_type,pts_time',
             '-read_intervals', f'{interval_start}%+{MAX_KEYFRAME_INTERVAL}', '-of', 'csv', filepath)
@@ -202,8 +280,26 @@ def get_next_best_keyframe_ts_in_interval(filepath: Path, interval_start: timede
 
 
 def normalize_video_profile(ffprobe_profile: str) -> str:
+    """
+    Normalize video profile string to lower case and remove 'constrained ' prefix.
+
+    Args:
+        ffprobe_profile (str): Profile string.
+
+    Returns:
+        str: Normalized profile.
+    """
     return ffprobe_profile.lower().removeprefix('constrained ')
 
 
 def normalize_video_level(ffprobe_level: int) -> str:
+    """
+    Normalize video level to string.
+
+    Args:
+        ffprobe_level (int): Video level.
+
+    Returns:
+        str: Normalized video level.
+    """
     return str(ffprobe_level) if ffprobe_level < 10 else f'{ffprobe_level // 10}.{ffprobe_level % 10}'

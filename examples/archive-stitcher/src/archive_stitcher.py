@@ -13,6 +13,12 @@ from .validations import get_media_desc, validate_conf, validate_media, validate
 
 
 def get_conf() -> Conf:
+    """
+    Parse command-line arguments and return a Conf object.
+
+    Returns:
+        Conf: Configuration object with user-specified parameters.
+    """
     timedelta_parser = lambda x: timedelta(seconds=float(x))
 
     parser = argparse.ArgumentParser()
@@ -40,6 +46,15 @@ def get_conf() -> Conf:
 
 
 def main(conf: Conf):
+    """
+    Main entry point for archive stitcher process.
+
+    Args:
+        conf (Conf): Configuration object with parameters and options.
+
+    Returns:
+        None: performs archive stitching and merging according to configuration.
+    """
     printerr(f'Using conf: {conf}')
 
     validate_tools()
