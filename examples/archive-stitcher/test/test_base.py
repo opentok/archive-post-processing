@@ -32,7 +32,6 @@ class TestBase(unittest.TestCase):
                 algo_audio=AlgoAudio.PEARSON,
                 allow_output_overwrite=True,
                 debug_plot=False,
-                deep_debug_plot=False,
                 deep_search=False,
                 )
 

@@ -905,7 +905,7 @@ def find_overlap_audio(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
     end_time_a = librosa.frames_to_time(overlap_indices_a.end, sr=rate, hop_length=HOP_LENGTH)
     end_time_b = librosa.frames_to_time(overlap_indices_b.end, sr=rate, hop_length=HOP_LENGTH)
 
-    if conf.debug_plot or conf.deep_debug_plot:
+    if conf.debug_plot:
         print(f"Best alignment for audio_a starts at sec: {(start_time_a + offset_a.total_seconds()):.2f}s")
         print(f"Best alignment for audio_a ends at sec: {(end_time_a + offset_a.total_seconds()):.2f}")
         print(f"Best alignment for audio_b starts at sec: {start_time_b:.2f}s")
@@ -948,7 +948,7 @@ def find_overlap_video(archive_a: Path, archive_b: Path, conf: FindOverlapArgs) 
     start_overlap_b: int = overlap_data_df.loc[overlap_indexes.ini, 'similar_frame_b']
     end_overlap_a: int = overlap_data_df.loc[overlap_indexes.end, 'frame_a']
 
-    if conf.debug_plot or conf.deep_debug_plot:
+    if conf.debug_plot:
         end_time_b = (start_overlap_b + (end_overlap_a - start_overlap_a)) / rate  # pragma: no cover
         print(f"Best alignment for video_a starts at sec: {(start_overlap_a / rate):.2f}s")
         print(f"Best alignment for video_a ends at sec: {(end_overlap_a / rate):.2f}s")
