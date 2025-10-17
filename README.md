@@ -3,7 +3,7 @@
 **This tool merges pairs of consecutive composed archives created by the OpenTok auto-archiving capability. These
 archives contain some media overlapping between the ending part of the first and the starting part of the second archive.**
 
-After creating a serie of composed archives with the Vonage auto-archiving feature [Vonage-automatic], this tool can be used to merge them smoothy as possible, giving rise to longer archives that cover the whole session call. You can also use this tool with video recordings that are not created  as Vonage Video archives, as long as some media overlapping is present and the media configuration of all of the input archives satisfy the following criteria:
+After creating a serie of composed archives with the Vonage auto-archiving feature [[Vonage-automatic]], this tool can be used to merge them smoothy as possible, giving rise to longer archives that cover the whole session call. You can also use this tool with video recordings that are not created  as Vonage Video archives, as long as some media overlapping is present and the media configuration of all of the input archives satisfy the following criteria:
 
 - **Composed Archive Audio/Video Params**
   - **Video**
@@ -102,7 +102,7 @@ In the case of having archives with both audio and video, our tool finds separat
 
 ## Other useful material
 
-Our developer documentation [Vonage-post-processing] contains easy to understand explanations and ready to use code. Please refer to https://github.com/opentok/archive-post-processing/blob/main/examples/archive-stitcher/README.md for an extend documetation about how to run the tool.
+Our developer documentation [[Vonage-post-processing]] contains easy to understand explanations and ready to use code. Please refer to https://github.com/opentok/archive-post-processing/blob/main/examples/archive-stitcher/README.md for an extend documetation about how to run the tool.
 
 ---
 
@@ -119,7 +119,10 @@ Our developer documentation [Vonage-post-processing] contains easy to understand
 
 - [Van der Walt et al., 2014] Stéfan van der Walt, Johannes L. Schönberger, Juan Nunez-Iglesias, François Boulogne, Joshua D. Warner, Neil Yager, Emmanuelle Gouillart, Tony Yu and the scikit-image contributors. "Scikit-image: Image processing in Python". *PeerJ* 2:e453. 2014. DOI: [DOI](https://doi.org/10.7717/peerj.453). Link: [scikit-image](https://scikit-image.org/docs/0.25.x/auto_examples/features_detection/plot_local_binary_pattern.html)
 
-- [Vonage-automatic] Vonage property, "Archiving. Vonage Video API archiving lets you record, save and retrieve sessions." Link: [auto-archive](https://tokbox.com/developer/guides/archiving/#automatic)
+[Vonage-automatic]: https://developer.vonage.com/en/video/guides/archiving/overview#automatically-archived-recording-sessions "Vonage property, Archiving. Vonage Video API archiving lets you record, save and retrieve sessions."
 
-- [Vonage-post-processing] Vonage property, "Archiving. Vonage Video API archiving lets you record, save and retrieve sessions." Link: [post-processing-composed-archives](https://tokbox.com/developer/guides/archive-post-processing)
+- \[Vonage-automatic\]\: https://developer.vonage.com/en/video/guides/archiving/overview#automatically-archived-recording-sessions "Vonage property, Archiving. Vonage Video API archiving lets you record, save and retrieve sessions."
 
+[Vonage-post-processing]: https://developer.vonage.com/en/video/guides/archiving/overview#post-processing-composed-archives "Vonage property, Archiving. Vonage Video API archiving lets you record, save and retrieve sessions."
+
+- \[Vonage-post-processing\]\: https://developer.vonage.com/en/video/guides/archiving/overview#post-processing-composed-archives "Vonage property, Archiving. Vonage Video API archiving lets you record, save and retrieve sessions."
