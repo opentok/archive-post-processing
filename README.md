@@ -70,8 +70,8 @@ As it is clearly visible at first glance, our audio algorithm is capable of find
 
 We provide two different solutions according to the number of iterations carried out during the sliding window computation of the algorithm: 
 
-- **Deep-search**: this option can be executed if -d or --deep-search is added to the running command.
-- **Partial-search**: this proposal is the default one.
+- **Deep-search**: this option can be executed if -s or --deep-search is added to the running command.
+- **Partial-search**: default algorithm.
 
 ### Video-only Archives: 
 
