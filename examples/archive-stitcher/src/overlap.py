@@ -30,7 +30,7 @@ for cat in categories:
 # Resize factor for the video frames
 RESIZE_FACTOR: Final[np.float32] = 0.5
 
-# Accepted error to avoid the indetermination: anyValue/0
+# Accepted error factor to avoid the indetermination: anyValue/0
 ACCEPTED_ERROR: Final[np.float32] = 1e-8
 
 # Minimun accepted signal length
@@ -302,8 +302,8 @@ def compute_audio_score(window_a: np.ndarray, window_b: np.ndarray, conf: FindOv
             correlations = numerator / (denominator + ACCEPTED_ERROR)
 
             # Pearson chromas values are constrained to the range [-1, +1].
-            # Therefore, np.nanstd(pearson_chromas) is constrained to the range [0, 1]
-            # Similarity values closer to 1 have high similarity
+            # Therefore, np.nanstd(pearson_chromas) is constrained to the range [0, 1].
+            # Consequently, similarity values closer to 1 have high similarity
             similarity: np.float32 = 1 - min(np.nanstd(correlations) / 0.5, 1.0)
 
             return np.nanmax(correlations), similarity
@@ -654,6 +654,7 @@ def compute_deep_audio_algorithm(chroma_a: np.ndarray, chroma_b: np.ndarray,
         tuple[Interval, Interval]: Overlap intervals for A and B.
     """
     chromas_relationship: dict[int, SimilarityEntry] = {}
+
     for i in range(0, chroma_a.shape[1] - win_frames):
         window_a: np.ndarray = chroma_a[:, i:i + win_frames]
 
@@ -862,11 +863,11 @@ def compute_overlapping_cqt(y_a: np.ndarray, y_b: np.ndarray, rate: int,
     # The win_frames sliding window approximately covers WINDOW_NUM_SECS amount of time in the time domain
     win_frames: int = int(WINDOW_NUM_SECS * np.ceil(conf.audio_desc.sample_rate/HOP_LENGTH))
 
-    # Deep-search audio algorithm
+    # Partial-search audio algorithm
     if not conf.deep_search:
         return compute_partial_audio_algorithm(chroma_a, chroma_b, win_frames, conf)
 
-    # Partial-search audio algorithm
+    # Deep-search audio algorithm
     return compute_deep_audio_algorithm(chroma_a, chroma_b, win_frames, conf)
 
 
