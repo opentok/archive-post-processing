@@ -18,16 +18,14 @@ MAX_KEYFRAME_INTERVAL = timedelta(seconds=20)
 
 def merge_files(archive_a: Path, archive_b: Path, output: Path, conf: MergeArgs) -> None:
     """
-    Merge two media files (audio and/or video) with overlap consideration.
+    Merge two media files (audio and/or video) with overlap consideration and write merged
+    output to the specified path.
 
     Args:
         archive_a (Path): Path to first archive file.
         archive_b (Path): Path to second archive file.
         output (Path): Path where output should be saved.
         conf (MergeArgs): Merge configuration and overlap details.
-
-    Returns:
-        None; writes merged output to the specified path.
     """
     # precondition, we need either video or audio, this has to have been validated already in an outer layer
     assert(conf.video_desc or conf.audio_desc)

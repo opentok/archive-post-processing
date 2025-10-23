@@ -46,12 +46,10 @@ def get_conf() -> Conf:
 def main(conf: Conf):
     """
     Main entry point for archive stitcher process.
+    Perform archive stitching and merging according to configuration.
 
     Args:
         conf (Conf): Configuration object with parameters and options.
-
-    Returns:
-        None: performs archive stitching and merging according to configuration.
     """
     printerr(f'Using conf: {conf}')
 
